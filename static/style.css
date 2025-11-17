@@ -461,7 +461,7 @@ body {
     font-family: 'Monaco', 'Menlo', 'SF Mono', monospace;
     font-size: 0.875rem;
     color: var(--text-primary);
-    line-height: 1.5;
+    line-height: 3;
 }
 
 .route-stats-grid {
@@ -1201,7 +1201,7 @@ body {
     font-family: 'Monaco', 'Menlo', 'SF Mono', monospace;
     font-size: 0.85rem; /* Slightly smaller */
     color: var(--text-primary);
-    line-height: 1.4;
+    line-height: 3.0;
 }
 
 .route-card-header {
