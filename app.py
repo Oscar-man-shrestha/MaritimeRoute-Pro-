@@ -30,7 +30,7 @@ def calculate_routes():
 
 if __name__ == '__main__':
     print("🚢 Shipping Route Optimizer Web Server Starting...")
-    print("📡 Access the application at: http://localhost:5001")  # Changed to 5001
-    print("🌐 Also available at: http://0.0.0.0:5001")  # Changed to 5001
+    print("📡 Access the application at: http://localhost:5001")
+    print("🌐 Also available at: http://0.0.0.0:5001")
     print("⏹️  Press CTRL+C to stop the server")
     app.run(debug=True, port=5001, host='0.0.0.0')  # Changed to port 5001
