@@ -30,6 +30,8 @@ class ShippingRouteOptimizer:
             "Tokyo": (35.6762, 139.6503),
             "Melbourne": (-37.8136, 144.9631),
             "Perth": (-31.9514, 115.8617),
+            "Suez_Canal": (30.5852, 32.2654),
+            "Salalah": (16.9472, 54.0104),
         }
         
         self.AVERAGE_SPEED_KMH = 37.0
@@ -124,7 +126,7 @@ class ShippingRouteOptimizer:
                     continue
                 port_paths[(ports[i], ports[j])] = self._astar_between(ports[i], ports[j])
                 current += 1
-                if current % 50 == 0:  # Print progress every 50 combinations
+                if current % 50 == 0:
                     print(f"  Progress: {current}/{total_combinations} paths computed")
         
         print("✅ Precompute done.")
@@ -155,7 +157,6 @@ class ShippingRouteOptimizer:
             length = nx.path_weight(self.sea_graph, path, weight="weight")
             return tuple(path), length
         except Exception as e:
-            # If A* fails, return infinite distance
             return None, float("inf")
 
     def _total_distance(self, port_sequence):
@@ -173,133 +174,194 @@ class ShippingRouteOptimizer:
         return distance_km * self.FUEL_CONSUMPTION_PER_KM * self.WEATHER_FACTOR
 
     def _fitness(self, route_seq, goal):
-        """Compute fitness for GA."""
+        """Compute fitness for GA - routes with ALL intermediate ports get priority."""
+        # First check if all required ports are included
+        if hasattr(self, 'current_hub_ports'):
+            required_ports = set(self.current_hub_ports)
+            actual_ports = set(route_seq[1:-1])  # Exclude start and end
+            
+            if not required_ports.issubset(actual_ports):
+                # Heavy penalty for missing required ports
+                return 0.0
+        
         d = self._total_distance(route_seq)
         if d == float("inf"):
             return 0.0
 
-        stops = len(route_seq) - 2  # exclude start and destination
+        stops = len(route_seq) - 2  # Number of intermediate stops
 
         if goal == "fastest":
-            # For fastest route, penalize distance AND number of stops
-            t = self._estimate_travel_time_hours(d) + stops * 24  # 24 hours penalty per hub
-            return 1.0 / (t + 1e-6)
+            # Time-based fitness (minimize time)
+            time_hours = self._estimate_travel_time_hours(d) + stops * 8  # Port stop penalty
+            return 1.0 / (time_hours + 1e-6)
         else:
-            # For fuel-efficient route, penalize distance more heavily and stops less
-            f = self._estimate_fuel_tonnes(d) * (1 + 0.05 * stops)  # 5% penalty per hub
-            return 1.0 / (f + 1e-6)
+            # Fuel-based fitness (minimize fuel)
+            fuel_tonnes = self._estimate_fuel_tonnes(d) * (1 + 0.025 * stops)  # Small stop penalty
+            return 1.0 / (fuel_tonnes + 1e-6)
 
-    def _mutate_route(self, route_seq):
-        """Swap two intermediate hubs randomly to introduce variation."""
-        if len(route_seq) <= 3:
-            return route_seq
-        a, b = random.sample(range(1, len(route_seq) - 1), 2)
-        route_seq[a], route_seq[b] = route_seq[b], route_seq[a]
-        return route_seq
-
-    def _crossover_routes(self, parent1, parent2):
-        """Create a child route by combining two parent routes."""
-        # Get the hub ports from both parents (exclude start and end)
+    def _crossover(self, parent1, parent2, hub_ports):
+        """Crossover that preserves all hub ports."""
+        # Get intermediate ports from both parents (excluding start/end)
         hubs1 = parent1[1:-1]
         hubs2 = parent2[1:-1]
         
-        # Combine and remove duplicates
+        # Ensure all required hubs are included
         all_hubs = list(dict.fromkeys(hubs1 + hubs2))
         
-        # Randomly select a subset of hubs (at least 1, at most all)
-        num_hubs = random.randint(1, len(all_hubs))
-        child_hubs = random.sample(all_hubs, num_hubs)
+        # Make sure ALL selected hub ports are included
+        for hub in hub_ports:
+            if hub not in all_hubs:
+                all_hubs.append(hub)
         
-        # Create child route
-        child = [parent1[0]] + child_hubs + [parent1[-1]]
+        # Create child with start, all hubs, and destination
+        child = [parent1[0]] + all_hubs + [parent1[-1]]
+        
         return child
 
+    def _mutate(self, route, hub_ports):
+        """Mutation that maintains all hub ports."""
+        if len(route) <= 3:  # Only start, one hub, end
+            return route
+        
+        # Only mutate the intermediate ports (not start/end)
+        intermediate_indices = list(range(1, len(route) - 1))
+        
+        if len(intermediate_indices) >= 2:
+            # Swap two random intermediate ports
+            i, j = random.sample(intermediate_indices, 2)
+            route[i], route[j] = route[j], route[i]
+        
+        return route
+
     def _run_genetic_algorithm(self, start_port, destination_port, hub_ports, goal):
-        """Run genetic algorithm to optimize route."""
+        """Run genetic algorithm to optimize route - GUARANTEES ALL INTERMEDIATE PORTS ARE INCLUDED."""
         if not hub_ports:
             # If no hub ports, return direct route
             direct_route = [start_port, destination_port]
             direct_distance = self._total_distance(direct_route)
             return direct_route, direct_distance
 
-        # Initialize population with diverse routes
+        print(f"🧬 GA optimizing route with ALL hubs: {hub_ports}")
+
+        # Initialize population that includes ALL hub ports
         population = []
         
-        # Add direct route
-        population.append([start_port, destination_port])
-        
-        # Add routes with individual hubs
-        for hub in hub_ports:
-            population.append([start_port, hub, destination_port])
-        
-        # Add routes with all hubs in different orders
-        if len(hub_ports) > 1:
-            # Try a few random permutations
-            for _ in range(min(10, self.GA_POPULATION_SIZE - len(population))):
-                shuffled = hub_ports.copy()
-                random.shuffle(shuffled)
-                population.append([start_port] + shuffled + [destination_port])
-        
-        # Fill remaining population with random combinations
-        while len(population) < self.GA_POPULATION_SIZE:
-            num_hubs = random.randint(1, len(hub_ports))
-            selected_hubs = random.sample(hub_ports, num_hubs)
-            population.append([start_port] + selected_hubs + [destination_port])
+        # Create initial population with all hub ports included
+        for _ in range(self.GA_POPULATION_SIZE):
+            # Always include all hub ports, just shuffle the order
+            shuffled_hubs = hub_ports.copy()
+            random.shuffle(shuffled_hubs)
+            route = [start_port] + shuffled_hubs + [destination_port]
+            population.append(route)
 
-        best_seq = None
-        best_fit = -float("inf")
+        best_route = None
+        best_fitness = -float('inf')
+        best_distance = float('inf')
 
-        for gen in range(self.GA_GENERATIONS):
-            # Evaluate fitness
-            scored = []
-            for seq in population:
-                fit = self._fitness(seq, goal)
-                scored.append((seq, fit))
+        for generation in range(self.GA_GENERATIONS):
+            # Evaluate fitness for each route
+            fitness_scores = []
+            for route in population:
+                # Verify ALL hub ports are included
+                route_hubs = set(route[1:-1])  # Exclude start and end ports
+                required_hubs = set(hub_ports)
                 
-                # Track best solution
-                if fit > best_fit and fit < float("inf"):
-                    best_seq = seq[:]
-                    best_fit = fit
+                if required_hubs.issubset(route_hubs):
+                    # All required hubs are included, calculate fitness
+                    distance = self._total_distance(route)
+                    fitness = self._fitness(route, goal)
+                    fitness_scores.append((route, fitness, distance))
+                    
+                    # Track best route
+                    if fitness > best_fitness:
+                        best_route = route.copy()
+                        best_fitness = fitness
+                        best_distance = distance
+                else:
+                    # Penalize routes that don't include all hubs
+                    fitness_scores.append((route, 0.0, float('inf')))
+
+            # Sort by fitness (descending)
+            fitness_scores.sort(key=lambda x: x[1], reverse=True)
             
-            scored.sort(key=lambda x: x[1], reverse=True)
+            # Create new population through selection, crossover, and mutation
+            new_population = []
+            
+            # Elitism: keep the best routes
+            elite_count = max(2, self.GA_POPULATION_SIZE // 10)
+            for i in range(min(elite_count, len(fitness_scores))):
+                if fitness_scores[i][1] > 0:  # Only keep valid routes
+                    new_population.append(fitness_scores[i][0])
 
-            # Elitism: keep top solutions
-            new_pop = [s[0] for s in scored[:8]]
+            # Fill the rest of the population
+            while len(new_population) < self.GA_POPULATION_SIZE:
+                # Selection: choose parents from valid routes
+                valid_routes = [route for route, fitness, _ in fitness_scores if fitness > 0]
+                
+                if len(valid_routes) >= 2:
+                    # Tournament selection
+                    parent1 = max(random.sample(valid_routes, min(3, len(valid_routes))), 
+                                 key=lambda r: self._fitness(r, goal))
+                    parent2 = max(random.sample(valid_routes, min(3, len(valid_routes))), 
+                                 key=lambda r: self._fitness(r, goal))
+                    
+                    # Crossover - ensure all hubs are included
+                    child = self._crossover(parent1, parent2, hub_ports)
+                    
+                    # Mutation - maintain all hubs
+                    if random.random() < 0.3:
+                        child = self._mutate(child, hub_ports)
+                    
+                    new_population.append(child)
+                else:
+                    # Fallback: create new route with all hubs
+                    shuffled = hub_ports.copy()
+                    random.shuffle(shuffled)
+                    new_population.append([start_port] + shuffled + [destination_port])
 
-            # Generate new population through crossover and mutation
-            while len(new_pop) < self.GA_POPULATION_SIZE:
-                # Select parents from top 50%
-                parent_pool = [s[0] for s in scored[:len(scored)//2]]
-                if len(parent_pool) < 2:
-                    parent_pool = population
-                
-                p1, p2 = random.sample(parent_pool, 2)
-                
-                # Crossover
-                child = self._crossover_routes(p1, p2)
-                
-                # Mutation
-                if random.random() < 0.3 and len(child) > 3:
-                    child = self._mutate_route(child)
-                
-                # Ensure the route is valid (contains only allowed ports)
-                valid_route = [start_port]
-                for port in child[1:-1]:
-                    if port in hub_ports and port not in valid_route:
-                        valid_route.append(port)
-                valid_route.append(destination_port)
-                
-                new_pop.append(valid_route)
+            population = new_population[:self.GA_POPULATION_SIZE]
 
-            population = new_pop
+            # Print progress every 20 generations
+            if generation % 20 == 0:
+                print(f"  Generation {generation}: Best distance = {best_distance:.2f} km")
 
-        # If no valid route found, return direct route
-        if best_seq is None or best_fit <= 0:
-            direct_route = [start_port, destination_port]
-            direct_distance = self._total_distance(direct_route)
-            return direct_route, direct_distance
+        # Final verification - ensure ALL hubs are included
+        if best_route:
+            final_hubs = set(best_route[1:-1])
+            missing_hubs = set(hub_ports) - final_hubs
+            
+            if missing_hubs:
+                print(f"⚠️  Adding missing hubs to final route: {missing_hubs}")
+                # Insert missing hubs at optimal positions
+                for hub in missing_hubs:
+                    # Find the best position to insert the missing hub
+                    best_position = -1
+                    best_increase = float('inf')
+                    
+                    for i in range(1, len(best_route)):
+                        test_route = best_route.copy()
+                        test_route.insert(i, hub)
+                        increase = self._total_distance(test_route) - best_distance
+                        
+                        if increase < best_increase:
+                            best_increase = increase
+                            best_position = i
+                    
+                    if best_position != -1:
+                        best_route.insert(best_position, hub)
+                        best_distance = self._total_distance(best_route)
+
+        # If no valid route found (shouldn't happen), use fallback
+        if not best_route or best_fitness <= 0:
+            print("🔄 Using fallback route with all hubs")
+            best_route = [start_port] + hub_ports + [destination_port]
+            best_distance = self._total_distance(best_route)
+
+        print(f"✅ Final {goal} route: {' → '.join(best_route)}")
+        print(f"📏 Total distance: {best_distance:.2f} km")
+        print(f"🔢 Includes {len(best_route) - 2} intermediate ports")
         
-        return best_seq, self._total_distance(best_seq)
+        return best_route, best_distance
 
     def _nodes_to_latlon(self, path_nodes):
         """Convert path nodes to coordinates."""
@@ -364,18 +426,54 @@ class ShippingRouteOptimizer:
         return points
 
     def calculate_optimal_routes(self, start_port, destination_port, hub_ports=None, goal="both"):
-        """Main method to calculate optimal routes for web interface"""
+        """Main method to calculate optimal routes - GUARANTEES ALL INTERMEDIATE PORTS ARE INCLUDED."""
         if hub_ports is None:
             hub_ports = []
-            
-        print(f"🏁 Running GA for {start_port} → {destination_port} with hubs: {hub_ports}")
         
-        # Run genetic algorithm
+        # Store current hub ports for fitness function
+        self.current_hub_ports = hub_ports
+        
+        print(f"🏁 Calculating routes: {start_port} → {destination_port}")
+        print(f"🎯 Intermediate ports (ALL WILL BE INCLUDED): {hub_ports}")
+        print(f"🎯 Optimization goal: {goal}")
+        
+        # Run genetic algorithm for both goals
         fastest_route, fastest_distance = self._run_genetic_algorithm(start_port, destination_port, hub_ports, "fastest")
         fuel_route, fuel_distance = self._run_genetic_algorithm(start_port, destination_port, hub_ports, "fuel")
         
-        print(f"✅ Fastest route: {' → '.join(fastest_route)} (Distance: {fastest_distance:.2f} km)")
-        print(f"✅ Fuel-efficient route: {' → '.join(fuel_route)} (Distance: {fuel_distance:.2f} km)")
+        # Final verification - ensure ALL intermediate ports are included
+        for route_name, route, hubs in [("Fastest", fastest_route, hub_ports), ("Fuel-efficient", fuel_route, hub_ports)]:
+            route_hubs = set(route[1:-1])
+            required_hubs = set(hubs)
+            missing_hubs = required_hubs - route_hubs
+            
+            if missing_hubs:
+                print(f"❌ CRITICAL: {route_name} route missing ports: {missing_hubs}")
+                print(f"   Forcing inclusion of missing ports...")
+                
+                # Force include missing ports at optimal positions
+                for hub in missing_hubs:
+                    best_position = -1
+                    best_increase = float('inf')
+                    current_distance = self._total_distance(route)
+                    
+                    for i in range(1, len(route)):
+                        test_route = route.copy()
+                        test_route.insert(i, hub)
+                        increase = self._total_distance(test_route) - current_distance
+                        
+                        if increase < best_increase:
+                            best_increase = increase
+                            best_position = i
+                    
+                    if best_position != -1:
+                        route.insert(best_position, hub)
+                        print(f"   Added {hub} at position {best_position}")
+                
+                print(f"   Fixed route: {' → '.join(route)}")
+        
+        print(f"✅ Final fastest route: {' → '.join(fastest_route)}")
+        print(f"✅ Final fuel-efficient route: {' → '.join(fuel_route)}")
         
         # Calculate coordinates for mapping
         fast_coords = self._build_full_route_coordinates(fastest_route)
@@ -408,5 +506,9 @@ class ShippingRouteOptimizer:
             },
             'port_locations': self.PORT_LOCATIONS
         }
+        
+        # Clean up
+        if hasattr(self, 'current_hub_ports'):
+            del self.current_hub_ports
         
         return results
