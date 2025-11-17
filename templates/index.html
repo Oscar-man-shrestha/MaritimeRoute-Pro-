@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maritime Route Optimizer | A* & Genetic Algorithm Powered Shipping Solutions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo">
+                        <span class="logo-icon">⛴️</span>
+                        <h1>MaritimeRoute Pro</h1>
+                    </div>
+                    <p class="tagline"> Shipping Route Optimization</p>
+                </div>
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">18</span>
+                        <span class="stat-label">Global Ports</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">37k</span>
+                        <span class="stat-label">Sea Nodes</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">A* and Genetic</span>
+                        <span class="stat-label">Optimized</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Left Sidebar - Controls -->
+            <div class="sidebar">
+                <!-- Control Panel -->
+                <div class="control-panel">
+                    <div class="panel-header">
+                        <h2>Route Configuration</h2>
+                        <div class="panel-actions">
+                            <button class="btn-secondary" onclick="clearForm()">
+                                <span>🔄</span> Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <span class="label-icon">📍</span>
+                                Departure Port
+                            </label>
+                            <select id="startPort" class="form-select">
+                                <option value="">Select departure port</option>
+                                {% for port in ports %}
+                                <option value="{{ port }}">{{ port }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <span class="label-icon">🎯</span>
+                                Destination Port
+                            </label>
+                            <select id="destinationPort" class="form-select">
+                                <option value="">Select destination port</option>
+                                {% for port in ports %}
+                                <option value="{{ port }}">{{ port }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <span class="label-icon">🔄</span>
+                                Intermediate Ports
+                                <span class="optional-badge">Optional</span>
+                            </label>
+                            <select id="hubPorts" multiple class="form-select multiple" size="5">
+                                <option value="">Select intermediate ports</option>
+                                {% for port in ports %}
+                                <option value="{{ port }}">{{ port }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-hint">
+                                <span class="hint-icon">💡</span>
+                                Hold Ctrl/Cmd to select multiple ports
+                            </div>
+                            <div class="selected-ports" id="selectedPorts" style="display: none;">
+                                <div class="selected-ports-header">
+                                    <span>Selected Ports:</span>
+                                    <button type="button" onclick="clearSelectedPorts()" class="btn-clear-ports">Clear All</button>
+                                </div>
+                                <div class="selected-ports-list" id="selectedPortsList"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                <span class="label-icon">🎯</span>
+                                Optimization Focus
+                            </label>
+                            <div class="radio-group">
+                                <label class="radio-option">
+                                    <input type="radio" name="goal" value="both" checked>
+                                    <span class="radio-custom"></span>
+                                    <span class="radio-label">
+                                        <strong>Balanced Analysis</strong>
+                                        <small>Compare fastest vs most efficient</small>
+                                    </span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="goal" value="fastest">
+                                    <span class="radio-custom"></span>
+                                    <span class="radio-label">
+                                        <strong>Time Priority</strong>
+                                        <small>Minimum transit time</small>
+                                    </span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="goal" value="fuel">
+                                    <span class="radio-custom"></span>
+                                    <span class="radio-label">
+                                        <strong>Efficiency Priority</strong>
+                                        <small>Minimum fuel consumption</small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button id="calculateBtn" class="btn-primary calculate-btn">
+                            <span class="btn-icon">🚀</span>
+                            Calculate Optimal Routes
+                            <span class="btn-loading" style="display: none;">⏳</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Results Panel - Separate from Controls -->
+                <div class="results-panel" id="resultsPanel" style="display: none;">
+                    <div class="panel-header">
+                        <h2>Route Analysis</h2>
+                        <div class="results-meta" id="resultsMeta"></div>
+                    </div>
+                    <div class="results-content">
+                        <div class="route-comparison">
+                            <!-- Results will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area - Map Only -->
+            <div class="main-area">
+                <!-- Map Container -->
+                <div class="map-container">
+                    <div class="map-header">
+                        <h3>Route Visualization</h3>
+                        <div class="map-actions">
+                            <button class="btn-map-action" onclick="zoomToRoutes()" title="Zoom to Routes">
+                                <span>🔍</span>
+                            </button>
+                            <button class="btn-map-action" onclick="toggleFullscreen()" title="Fullscreen">
+                                <span>⛶</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="map"></div>
+                    
+                    <!-- Map Legend -->
+                    <div class="map-legend" id="mapLegend">
+                        <div class="legend-header">
+                            <h4>Map Legend</h4>
+                            <button class="legend-toggle" onclick="toggleLegend()">−</button>
+                        </div>
+                        <div class="legend-content">
+                            <div class="legend-item">
+                                <span class="color-swatch" style="background: #ff6b35;"></span>
+                                <span>Fastest Route</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-swatch" style="background: #2ecc71;"></span>
+                                <span>Efficient Route</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-swatch" style="background: #3498db; border: 1px dashed #3498db;"></span>
+                                <span>Direct Route</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-swatch" style="background: #27ae60;"></span>
+                                <span>Departure Port</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-swatch" style="background: #e74c3c;"></span>
+                                <span>Destination Port</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-swatch" style="background: #f39c12;"></span>
+                                <span>Intermediate Port</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Map Controls -->
+                    <div class="map-controls">
+                        <div class="control-group">
+                            <button onclick="toggleRoute('fastest')" class="control-btn active">
+                                <span class="control-indicator" style="background: #ff6b35;"></span>
+                                Fastest Route
+                            </button>
+                            <button onclick="toggleRoute('fuel')" class="control-btn active">
+                                <span class="control-indicator" style="background: #2ecc71;"></span>
+                                Efficient Route
+                            </button>
+                            <button onclick="toggleRoute('direct')" class="control-btn">
+                                <span class="control-indicator" style="background: #3498db; border: 1px dashed #3498db;"></span>
+                                Direct Route
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">
+                    <h3>Calculating Optimal Routes</h3>
+                    <p>Analyzing sea lanes and optimizing paths...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
