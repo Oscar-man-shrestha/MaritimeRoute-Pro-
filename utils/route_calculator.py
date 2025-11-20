@@ -262,11 +262,14 @@ class ShippingRouteOptimizer:
             # Evaluate fitness for each route
             fitness_scores = []
             for route in population:
-                # Verify ALL hub ports are included
+                # Verify ALL hub ports are included and start/end are correct
                 route_hubs = set(route[1:-1])  # Exclude start and end ports
                 required_hubs = set(hub_ports)
                 
-                if required_hubs.issubset(route_hubs):
+                # Check if route starts and ends correctly
+                correct_start_end = route[0] == start_port and route[-1] == destination_port
+                
+                if required_hubs.issubset(route_hubs) and correct_start_end:
                     # All required hubs are included, calculate fitness
                     distance = self._total_distance(route)
                     fitness = self._fitness(route, goal)
@@ -278,7 +281,7 @@ class ShippingRouteOptimizer:
                         best_fitness = fitness
                         best_distance = distance
                 else:
-                    # Penalize routes that don't include all hubs
+                    # Penalize routes that don't include all hubs or have wrong start/end
                     fitness_scores.append((route, 0.0, float('inf')))
 
             # Sort by fitness (descending)
@@ -325,7 +328,7 @@ class ShippingRouteOptimizer:
             if generation % 20 == 0:
                 print(f"  Generation {generation}: Best distance = {best_distance:.2f} km")
 
-        # Final verification - ensure ALL hubs are included
+        # Final verification - ensure ALL hubs are included and start/end are correct
         if best_route:
             final_hubs = set(best_route[1:-1])
             missing_hubs = set(hub_ports) - final_hubs
@@ -334,11 +337,11 @@ class ShippingRouteOptimizer:
                 print(f"⚠️  Adding missing hubs to final route: {missing_hubs}")
                 # Insert missing hubs at optimal positions
                 for hub in missing_hubs:
-                    # Find the best position to insert the missing hub
+                    # Find the best position to insert the missing hub (between start and end)
                     best_position = -1
                     best_increase = float('inf')
                     
-                    for i in range(1, len(best_route)):
+                    for i in range(1, len(best_route)):  # Don't insert at start or end
                         test_route = best_route.copy()
                         test_route.insert(i, hub)
                         increase = self._total_distance(test_route) - best_distance

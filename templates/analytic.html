@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard | MaritimeRoute Pro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Your analytics CSS styles */
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Your header and analytics content -->
+        
+   <!-- Analytics Section -->
+<div id="analyticsSection" class="analytics-section" style="display: none;">
+    <div class="analytics-header">
+        <h2>📊 Real-Time Analytics Dashboard</h2>
+        <div>
+            <button class="btn-secondary" onclick="backToPlanner()">← Back to Planner</button>
+            <button class="btn-refresh" onclick="loadAnalyticsDashboard()">🔄 Refresh</button>
+        </div>
+    </div>
+    
+    <div class="analytics-grid">
+        <!-- Performance Metrics -->
+        <div class="analytics-card">
+            <h3>📈 Performance Metrics</h3>
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="metric-value" id="totalCalculations">0</span>
+                    <span class="metric-label">Total Calculations</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-value" id="totalFuelSaved">0.0t</span>
+                    <span class="metric-label">Fuel Saved</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-value" id="totalTimeSaved">0.0d</span>
+                    <span class="metric-label">Time Saved</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-value" id="totalCO2Reduced">0.0t</span>
+                    <span class="metric-label">CO₂ Reduced</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Algorithm Performance -->
+        <div class="analytics-card">
+            <h3>⚡ Algorithm Performance</h3>
+            <div class="algorithm-stats" id="algorithmStats">
+                <div class="algorithm-loading">Loading algorithm data...</div>
+            </div>
+        </div>
+        
+        <!-- Recent Calculations -->
+        <div class="analytics-card">
+            <h3>🕒 Recent Calculations</h3>
+            <div class="recent-list" id="recentCalculationsList">
+                <div class="recent-item">No recent calculations</div>
+            </div>
+        </div>
+        
+        <!-- Port Usage -->
+        <div class="analytics-card">
+            <h3>⚓ Port Usage</h3>
+            <div class="port-usage" id="portUsageList">
+                <div class="port-usage-item">No port usage data</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="analytics-footer">
+        <small>Last updated: <span id="lastUpdated">Never</span></small>
+    </div>
+</div>
+    
+</body>
+</html>

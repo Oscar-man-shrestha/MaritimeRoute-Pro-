@@ -13,27 +13,125 @@
         <!-- Header -->
         <header class="app-header">
             <div class="header-content">
+                <!-- Logo Section -->
                 <div class="logo-section">
-                    <div class="logo">
+                    <div class="logo" onclick="navLoadSection('planner')">
                         <span class="logo-icon">⛴️</span>
                         <h1>MaritimeRoute Pro</h1>
                     </div>
-                    <p class="tagline"> Shipping Route Optimization</p>
+                    <p class="tagline">AI-Powered Shipping Optimization</p>
                 </div>
-                <div class="header-stats">
-                    <div class="stat-item">
-                        <span class="stat-number">18</span>
-                        <span class="stat-label">Global Ports</span>
+
+                <!-- Main Navigation -->
+                <nav class="main-nav" id="mainNav">
+                    <div class="nav-items">
+                        <a href="#" class="nav-item active" onclick="navLoadSection('planner')">
+                            <span class="nav-icon">🗺️</span>
+                            <span class="nav-text">Route Planner</span>
+                        </a>
+                        <a href="#" class="nav-item" onclick="navLoadSection('analytics')">
+                            <span class="nav-icon">📊</span>
+                            <span class="nav-text">Analytics</span>
+                        </a>
+                        <a href="#" class="nav-item" onclick="navLoadSection('ports')">
+                            <span class="nav-icon">⚓</span>
+                            <span class="nav-text">Port Database</span>
+                        </a>
+                        
+                        <!-- Tools Dropdown -->
+                        <div class="nav-dropdown">
+                            <a href="#" class="nav-item">
+                                <span class="nav-icon">🔧</span>
+                                <span class="nav-text">Tools</span>
+                                <span class="dropdown-arrow">▼</span>
+                            </a>
+                            <div class="dropdown-menu">
+                                <a href="#" class="dropdown-item" onclick="navLoadSection('fleet')">
+                                    <span class="dropdown-icon">🚢</span>
+                                    Fleet Management
+                                </a>
+                                <a href="#" class="dropdown-item" onclick="navLoadSection('reports')">
+                                    <span class="dropdown-icon">📈</span>
+                                    Reports
+                                </a>
+                                <a href="#" class="dropdown-item" onclick="navLoadSection('weather')">
+                                    <span class="dropdown-icon">🌤️</span>
+                                    Weather Data
+                                </a>
+                                <a href="#" class="dropdown-item" onclick="navLoadSection('fuel')">
+                                    <span class="dropdown-icon">⛽</span>
+                                    Fuel Prices
+                                </a>
+                            </div>
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-number">37k</span>
-                        <span class="stat-label">Sea Nodes</span>
+                </nav>
+
+                <!-- Header Actions -->
+                <div class="header-actions">
+                    <!-- Quick Stats -->
+                    <div class="quick-stats">
+                        <div class="stat-pill">
+                            <span class="stat-value" id="livePortsCount">18</span>
+                            <span class="stat-label">Ports</span>
+                        </div>
+                        <div class="stat-pill">
+                            <span class="stat-value">37k</span>
+                            <span class="stat-label">Nodes</span>
+                        </div>
+                        <div class="stat-pill">
+                            <span class="stat-value">A*</span>
+                            <span class="stat-label">Active</span>
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-number">A* and Genetic</span>
-                        <span class="stat-label">Optimized</span>
+
+                    <!-- User Actions -->
+                    <div class="user-actions">
+                        <div class="status-indicator">
+                            <div class="status-dot online"></div>
+                            <span class="status-text">System Online</span>
+                        </div>
+                        
+                        <button class="btn-notification" onclick="navShowNotifications()" title="Notifications">
+                            <span class="notification-icon">🔔</span>
+                            <span class="notification-badge">3</span>
+                        </button>
+                        
+                        <div class="user-profile">
+                            <button class="btn-profile" onclick="navToggleProfileMenu()">
+                                <span class="user-avatar">👤</span>
+                                <span class="user-name">Admin</span>
+                                <span class="profile-arrow">▼</span>
+                            </button>
+                            <div class="profile-menu" id="profileMenu">
+                                <a href="#" class="profile-item" onclick="navLoadSection('profile')">
+                                    <span class="profile-icon">👤</span>
+                                    My Profile
+                                </a>
+                                <a href="#" class="profile-item" onclick="navOpenSettings()">
+                                    <span class="profile-icon">⚙️</span>
+                                    Settings
+                                </a>
+                                <div class="profile-divider"></div>
+                                <a href="#" class="profile-item" onclick="navLoadSection('help')">
+                                    <span class="profile-icon">❓</span>
+                                    Help & Support
+                                </a>
+                                <a href="#" class="profile-item" onclick="navLogout()">
+                                    <span class="profile-icon">🚪</span>
+                                    Logout
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Mobile Menu Toggle -->
+                <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="navToggleMobileMenu()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
             </div>
         </header>
 
@@ -158,7 +256,7 @@
                 </div>
             </div>
 
-            <!-- Main Content Area - Map Only -->
+            <!-- Main Content Area - Map and Statistics -->
             <div class="main-area">
                 <!-- Map Container -->
                 <div class="map-container">
@@ -183,7 +281,7 @@
                         </div>
                         <div class="legend-content">
                             <div class="legend-item">
-                                <span class="color-swatch" style="background:rgb(255, 215, 53);"></span>
+                                <span class="color-swatch" style="background:rgb(255, 127, 53);"></span>
                                 <span>Fastest Route</span>
                             </div>
                             <div class="legend-item">
@@ -227,6 +325,137 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Statistics Dashboard -->
+                <div class="metrics-dashboard">
+                    <div class="dashboard-header">
+                        <h3>📈 Route Statistics</h3>
+                        <div class="last-updated" id="statsLastUpdated">--</div>
+                    </div>
+                    
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-icon">⏱️</div>
+                            <div class="metric-content">
+                                <div class="metric-value" id="avgTransitTime">--</div>
+                                <div class="metric-label">Avg. Transit Time</div>
+                            </div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <div class="metric-icon">⛽</div>
+                            <div class="metric-content">
+                                <div class="metric-value" id="fuelEfficiency">--</div>
+                                <div class="metric-label">Fuel Efficiency</div>
+                            </div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <div class="metric-icon">🌍</div>
+                            <div class="metric-content">
+                                <div class="metric-value" id="distanceSaved">--</div>
+                                <div class="metric-label">Distance Saved</div>
+                            </div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <div class="metric-icon">💰</div>
+                            <div class="metric-content">
+                                <div class="metric-value" id="costSavings">--</div>
+                                <div class="metric-label">Cost Savings</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="route-comparison" id="routeComparison" style="display: none;">
+                        <h4>🔄 Route Comparison</h4>
+                        <div class="comparison-stats">
+                            <div class="comparison-item">
+                                <span class="comparison-label">Time Difference:</span>
+                                <span class="comparison-value" id="timeDifference">--</span>
+                            </div>
+                            <div class="comparison-item">
+                                <span class="comparison-label">Fuel Difference:</span>
+                                <span class="comparison-value" id="fuelDifference">--</span>
+                            </div>
+                            <div class="comparison-item">
+                                <span class="comparison-label">Recommended:</span>
+                                <span class="comparison-value" id="recommendedRoute">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="quick-actions">
+                        <h4>🚀 Quick Actions</h4>
+                        <button class="quick-btn" onclick="saveCurrentRoute()">💾 Save Route</button>
+                        <button class="quick-btn" onclick="compareWithPrevious()">📊 Compare Routes</button>
+                        <button class="quick-btn" onclick="exportRouteData()">📤 Export Data</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Section -->
+        <div id="analyticsSection" class="analytics-section" style="display: none;">
+            <div class="analytics-header">
+                <h2>📊 Real-Time Analytics Dashboard</h2>
+                <div>
+                    <button class="btn-secondary" onclick="backToPlanner()">← Back to Planner</button>
+                    <button class="btn-refresh" onclick="loadAnalyticsDashboard()">🔄 Refresh</button>
+                </div>
+            </div>
+            
+            <div class="analytics-grid">
+                <!-- Performance Metrics -->
+                <div class="analytics-card">
+                    <h3>Performance Metrics</h3>
+                    <div class="metrics-grid">
+                        <div class="metric">
+                            <span class="metric-value" id="totalCalculations">0</span>
+                            <span class="metric-label">Total Calculations</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-value" id="totalFuelSaved">0.0t</span>
+                            <span class="metric-label">Fuel Saved</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-value" id="totalTimeSaved">0.0d</span>
+                            <span class="metric-label">Time Saved</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-value" id="totalCO2Reduced">0.0t</span>
+                            <span class="metric-label">CO₂ Reduced</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Calculations -->
+                <div class="analytics-card">
+                    <h3>Recent Calculations</h3>
+                    <div class="recent-list" id="recentCalculationsList">
+                        <!-- Recent calculations will be populated here -->
+                    </div>
+                </div>
+                
+                <!-- Port Usage -->
+                <div class="analytics-card">
+                    <h3>Port Usage</h3>
+                    <div class="port-usage" id="portUsageList">
+                        <!-- Port usage will be populated here -->
+                    </div>
+                </div>
+                
+                <!-- Algorithm Performance -->
+                <div class="analytics-card">
+                    <h3>Algorithm Performance</h3>
+                    <div class="algorithm-stats" id="algorithmStats">
+                        <!-- Algorithm stats will be populated here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="analytics-footer">
+                <small>Last updated: <span id="lastUpdated">Never</span></small>
             </div>
         </div>
 
