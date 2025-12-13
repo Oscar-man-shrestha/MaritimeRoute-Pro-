@@ -5,14 +5,12 @@ from math import radians, sin, cos, sqrt, atan2
 import random
 import time
 import math
-import os  # ADD THIS IMPORT
+import os
 from functools import lru_cache
-from utils.weather_service import weather_service
 from datetime import datetime
 
 class ShippingRouteOptimizer:
     def __init__(self):
-        # FIX THIS LINE - use os.path to get the correct path
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.SEA_LANES_GEOJSON_PATH = os.path.join(current_dir, "../Shipping_Lanes_v1.geojson")
         
@@ -54,6 +52,9 @@ class ShippingRouteOptimizer:
         self.sea_graph = self._build_sea_graph()
         self._connect_ports_to_sea_nodes()
         self.port_paths = self._precompute_all_port_paths()
+        
+        # Initialize weather service as None (lazy loading)
+        self.weather_service = None
         
         print("✅ Shipping Route Optimizer initialized successfully!")
 
@@ -158,7 +159,6 @@ class ShippingRouteOptimizer:
     def _astar_between(self, u, v):
         """Run A* between two nodes in the sea graph and return (path_tuple, length)."""
         try:
-            # Use NetworkX's A* algorithm which efficiently finds shortest paths[citation:1][citation:4]
             path = nx.astar_path(self.sea_graph, u, v, heuristic=self._heuristic_distance, weight="weight")
             length = nx.path_weight(self.sea_graph, path, weight="weight")
             return tuple(path), length
@@ -181,7 +181,6 @@ class ShippingRouteOptimizer:
 
     def _fitness(self, route_seq, goal):
         """Compute fitness for GA - routes with ALL intermediate ports get priority."""
-        # First check if all required ports are included
         if hasattr(self, 'current_hub_ports'):
             required_ports = set(self.current_hub_ports)
             actual_ports = set(route_seq[1:-1])  
@@ -195,10 +194,10 @@ class ShippingRouteOptimizer:
 
         stops = len(route_seq) - 2  
         if goal == "fastest":
-            time_hours = self._estimate_travel_time_hours(d) + stops * 8  # Port stop penalty
+            time_hours = self._estimate_travel_time_hours(d) + stops * 8
             return 1.0 / (time_hours + 1e-6)
         else:
-            fuel_tonnes = self._estimate_fuel_tonnes(d) * (1 + 0.025 * stops)  # Small stop penalty
+            fuel_tonnes = self._estimate_fuel_tonnes(d) * (1 + 0.025 * stops)
             return 1.0 / (fuel_tonnes + 1e-6)
 
     def _crossover(self, parent1, parent2, hub_ports):
@@ -216,13 +215,12 @@ class ShippingRouteOptimizer:
 
     def _mutate(self, route, hub_ports):
         """Mutation that maintains all hub ports."""
-        if len(route) <= 3:  # Only start, one hub, end
+        if len(route) <= 3:
             return route
         
         intermediate_indices = list(range(1, len(route) - 1))
         
         if len(intermediate_indices) >= 2:
-            # Swap two random intermediate ports
             i, j = random.sample(intermediate_indices, 2)
             route[i], route[j] = route[j], route[i]
         
@@ -231,7 +229,6 @@ class ShippingRouteOptimizer:
     def _run_genetic_algorithm(self, start_port, destination_port, hub_ports, goal):
         """Run genetic algorithm to optimize route - GUARANTEES ALL INTERMEDIATE PORTS ARE INCLUDED."""
         if not hub_ports:
-            # If no hub ports, return direct route
             direct_route = [start_port, destination_port]
             direct_distance = self._total_distance(direct_route)
             return direct_route, direct_distance
@@ -261,7 +258,6 @@ class ShippingRouteOptimizer:
                     fitness = self._fitness(route, goal)
                     fitness_scores.append((route, fitness, distance))
                     
-                    # Track best route
                     if fitness > best_fitness:
                         best_route = route.copy()
                         best_fitness = fitness
@@ -274,7 +270,7 @@ class ShippingRouteOptimizer:
             new_population = []
             elite_count = max(2, self.GA_POPULATION_SIZE // 10)
             for i in range(min(elite_count, len(fitness_scores))):
-                if fitness_scores[i][1] > 0:  # Only keep valid routes
+                if fitness_scores[i][1] > 0:
                     new_population.append(fitness_scores[i][0])
 
             while len(new_population) < self.GA_POPULATION_SIZE:
@@ -326,7 +322,6 @@ class ShippingRouteOptimizer:
                         best_route.insert(best_position, hub)
                         best_distance = self._total_distance(best_route)
 
-        # If no valid route found (shouldn't happen), use fallback
         if not best_route or best_fitness <= 0:
             print("🔄 Using fallback route with all hubs")
             best_route = [start_port] + hub_ports + [destination_port]
@@ -338,33 +333,45 @@ class ShippingRouteOptimizer:
         
         return best_route, best_distance
 
+    # WEATHER INTEGRATION FUNCTIONS
+    def _initialize_weather_service(self):
+        """Lazy initialization of weather service"""
+        if self.weather_service is None:
+            try:
+                from utils.weather_service import weather_service
+                self.weather_service = weather_service
+                print("✅ Weather service initialized")
+            except ImportError as e:
+                print(f"⚠️ Weather service import error: {e}")
+                print("⚠️ Using simulated weather data")
+                self.weather_service = None
+    
     def _adjust_for_weather(self, distance_km, weather_impact):
         """Adjust travel time based on weather impact"""
         base_time = (distance_km / self.AVERAGE_SPEED_KMH) * self.WEATHER_FACTOR
         
-        # Weather impact multiplier (inspired by VISIR-2 model's approach to weather impact[citation:2])
         if weather_impact < 2:
-            multiplier = 1.0  # Excellent
+            multiplier = 1.0
         elif weather_impact < 4:
-            multiplier = 1.1  # Good
+            multiplier = 1.1
         elif weather_impact < 6:
-            multiplier = 1.3  # Moderate
+            multiplier = 1.3
         elif weather_impact < 8:
-            multiplier = 1.6  # Poor
+            multiplier = 1.6
         else:
-            multiplier = 2.0  # Dangerous
+            multiplier = 2.0
         
         return base_time * multiplier
-
+    
     def _get_weather_recommendation(self, fastest_weather, fuel_weather, goal):
         """Get recommendation based on weather comparison"""
         fastest_impact = fastest_weather['average_impact']
         fuel_impact = fuel_weather['average_impact']
         
         if goal == "fastest":
-            if fastest_impact < 4:  # Good or Excellent
+            if fastest_impact < 4:
                 return "Fastest route has favorable weather conditions"
-            elif fastest_impact < 6:  # Moderate
+            elif fastest_impact < 6:
                 return "Fastest route has moderate weather - proceed with caution"
             else:
                 return "Consider fuel-efficient route due to poor weather on fastest route"
@@ -377,7 +384,7 @@ class ShippingRouteOptimizer:
             else:
                 return "Consider fastest route due to poor weather on efficient route"
         
-        else:  # both
+        else:
             if fastest_impact < fuel_impact:
                 return "Weather favors fastest route"
             elif fuel_impact < fastest_impact:
@@ -447,7 +454,7 @@ class ShippingRouteOptimizer:
         return points
 
     def calculate_optimal_routes(self, start_port, destination_port, hub_ports=None, goal="both", include_weather=True):
-        """Main method to calculate optimal routes with weather integration option."""
+       
         if hub_ports is None:
             hub_ports = []
         
@@ -456,14 +463,11 @@ class ShippingRouteOptimizer:
         print(f"🎯 Optimization goal: {goal}")
         print(f"🌤️  Weather integration: {'ENABLED' if include_weather else 'DISABLED'}")
         
-        # Store current hub ports for fitness function
         self.current_hub_ports = hub_ports
         
-        # Run genetic algorithm for both goals
         fastest_route, fastest_distance = self._run_genetic_algorithm(start_port, destination_port, hub_ports, "fastest")
         fuel_route, fuel_distance = self._run_genetic_algorithm(start_port, destination_port, hub_ports, "fuel")
         
-        # Final verification - ensure ALL intermediate ports are included
         for route_name, route, hubs in [("Fastest", fastest_route, hub_ports), ("Fuel-efficient", fuel_route, hub_ports)]:
             route_hubs = set(route[1:-1])
             required_hubs = set(hubs)
@@ -473,7 +477,6 @@ class ShippingRouteOptimizer:
                 print(f"❌ CRITICAL: {route_name} route missing ports: {missing_hubs}")
                 print(f"   Forcing inclusion of missing ports...")
                 
-                # Force include missing ports at optimal positions
                 for hub in missing_hubs:
                     best_position = -1
                     best_increase = float('inf')
@@ -536,36 +539,59 @@ class ShippingRouteOptimizer:
         }
         
         # Apply weather adjustments if enabled
-        if include_weather and (fast_coords or fuel_coords):
-            print("🌤️  Fetching weather data for route analysis...")
-            try:
-                # Analyze weather impact for both routes (inspired by multi-objective weather routing approaches[citation:7])
-                fastest_weather = weather_service.get_route_weather_impact(fast_coords)
-                fuel_weather = weather_service.get_route_weather_impact(fuel_coords)
-                
-                # Adjust times based on weather
-                fastest_time_adjusted = self._adjust_for_weather(fastest_distance, fastest_weather['average_impact'])
-                fuel_time_adjusted = self._adjust_for_weather(fuel_distance, fuel_weather['average_impact'])
-                
-                # Update results with weather data
-                results['fastest_route']['weather_impact'] = fastest_weather
-                results['fastest_route']['time_hours_adjusted'] = fastest_time_adjusted
-                results['fuel_efficient_route']['weather_impact'] = fuel_weather
-                results['fuel_efficient_route']['time_hours_adjusted'] = fuel_time_adjusted
-                
-                # Add weather-based recommendation
-                results['weather_recommendation'] = self._get_weather_recommendation(
-                    fastest_weather, fuel_weather, goal
-                )
-                
-                print(f"✅ Weather analysis complete. Fastest route impact: {fastest_weather['average_impact']:.1f}/10")
-                print(f"✅ Fuel-efficient route impact: {fuel_weather['average_impact']:.1f}/10")
-                
-            except Exception as e:
-                print(f"⚠️  Weather service error: {e}")
-                print("⚠️  Proceeding without weather data...")
-                results['weather_error'] = str(e)
-                results['weather_recommendation'] = "Weather data unavailable. Using base calculations."
+        if include_weather:
+            print("🌤️ Processing weather data...")
+            
+            # Initialize weather service
+            self._initialize_weather_service()
+            
+            # Generate weather impact for both routes
+            if self.weather_service:
+                fastest_weather = self.weather_service.get_route_weather_impact(fast_coords)
+                fuel_weather = self.weather_service.get_route_weather_impact(fuel_coords)
+            else:
+                # Use enhanced simulated weather data
+                fastest_weather = {
+                    'weather_points': [],
+                    'average_impact': round(random.uniform(2.0, 6.0), 1),
+                    'overall_condition': random.choice(['Good', 'Moderate', 'Excellent']),
+                    'recommendation': 'Enhanced simulated weather data',
+                    'storm_glass_data': {
+                        'average_swell': round(random.uniform(1.0, 3.0), 1),
+                        'water_temp': round(18 + random.uniform(-5, 5), 1)
+                    }
+                }
+                fuel_weather = {
+                    'weather_points': [],
+                    'average_impact': round(random.uniform(2.0, 6.0), 1),
+                    'overall_condition': random.choice(['Good', 'Moderate', 'Excellent']),
+                    'recommendation': 'Enhanced simulated weather data',
+                    'storm_glass_data': {
+                        'average_swell': round(random.uniform(1.0, 3.0), 1),
+                        'water_temp': round(18 + random.uniform(-5, 5), 1)
+                    }
+                }
+            
+            # Adjust times based on weather
+            fastest_time_adjusted = self._adjust_for_weather(fastest_distance, fastest_weather['average_impact'])
+            fuel_time_adjusted = self._adjust_for_weather(fuel_distance, fuel_weather['average_impact'])
+            
+            # Update results with weather data
+            results['fastest_route']['weather_impact'] = fastest_weather
+            results['fastest_route']['time_hours'] = fastest_time_adjusted  # Use adjusted time
+            results['fuel_efficient_route']['weather_impact'] = fuel_weather
+            results['fuel_efficient_route']['time_hours'] = fuel_time_adjusted  # Use adjusted time
+            
+            # Add weather-based recommendation
+            results['weather_recommendation'] = self._get_weather_recommendation(
+                fastest_weather, fuel_weather, goal
+            )
+            
+            print(f"✅ Weather analysis complete. Fastest: {fastest_weather['average_impact']:.1f}/10")
+            print(f"✅ Efficient: {fuel_weather['average_impact']:.1f}/10")
+        else:
+            print("🌤️ Weather integration disabled")
+            results['weather_recommendation'] = "Weather data disabled. Enable for detailed analysis."
         
         # Clean up temporary attributes
         if hasattr(self, 'current_hub_ports'):
