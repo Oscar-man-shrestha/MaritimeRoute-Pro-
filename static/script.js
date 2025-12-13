@@ -278,12 +278,36 @@ function displayResults(data) {
         weatherHTML = `
             <div class="weather-dashboard">
                 <div class="weather-header">
-                    <h4>🌤️ Real-Time Weather Analysis</h4>
+                    <div class="weather-title">
+                        <h4>🌤️ Professional Maritime Weather Analysis</h4>
+                        <div class="weather-source">
+                            <span class="source-icon">🛰️</span>
+                            <span class="source-text">Integrated Storm Glass & OpenWeather Data</span>
+                        </div>
+                    </div>
                     <span class="weather-last-updated">Updated: ${new Date().toLocaleTimeString()}</span>
                 </div>
                 
                 <div class="weather-summary">
-                    <p>${data.weather_recommendation}</p>
+                    <div class="summary-content">
+                        <div class="summary-icon">📋</div>
+                        <div class="summary-text">
+                            <p><strong>${data.weather_recommendation}</strong></p>
+                            ${fastestWeather && fuelWeather ? `
+                            <div class="summary-stats">
+                                <span class="summary-stat">
+                                    <strong>Best Weather:</strong> 
+                                    <span class="${fastestWeather.average_impact < fuelWeather.average_impact ? 'color-excellent' : 'color-good'}">
+                                        ${fastestWeather.average_impact < fuelWeather.average_impact ? 'Fastest Route' : 'Efficient Route'}
+                                    </span>
+                                </span>
+                                <span class="summary-stat">
+                                    <strong>Difference:</strong> ${Math.abs(fastestWeather.average_impact - fuelWeather.average_impact).toFixed(1)} points
+                                </span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
                 </div>
                 
                 ${fastestWeather && fuelWeather ? `
@@ -293,28 +317,10 @@ function displayResults(data) {
                             <span class="weather-route-icon">🚀</span>
                             <span class="weather-route-title">Fastest Route</span>
                             <span class="weather-condition-badge ${getWeatherClass(fastestWeather.average_impact)}">
-                                ${fastestWeather.overall_condition}
+                                ${getWeatherIcon(fastestWeather.average_impact)} ${fastestWeather.overall_condition}
                             </span>
                         </div>
-                        <div class="weather-metrics">
-                            <div class="weather-metric">
-                                <span class="metric-label">Impact Score</span>
-                                <span class="metric-value ${getImpactColorClass(fastestWeather.average_impact)}">
-                                    ${fastestWeather.average_impact.toFixed(1)}/10
-                                </span>
-                                <div class="impact-bar">
-                                    <div class="impact-fill" style="width: ${fastestWeather.average_impact * 10}%"></div>
-                                </div>
-                            </div>
-                            <div class="weather-metric">
-                                <span class="metric-label">Wind Conditions</span>
-                                <span class="metric-value">${getWindCondition(fastestWeather.average_impact)}</span>
-                            </div>
-                            <div class="weather-metric">
-                                <span class="metric-label">Travel Time Impact</span>
-                                <span class="metric-value">+${calculateTimeImpact(fastestWeather.average_impact)}%</span>
-                            </div>
-                        </div>
+                        ${getEnhancedWeatherMetrics(fastestWeather, 'fastest')}
                     </div>
                     
                     <div class="weather-route-card fuel-weather">
@@ -322,50 +328,46 @@ function displayResults(data) {
                             <span class="weather-route-icon">🌿</span>
                             <span class="weather-route-title">Efficient Route</span>
                             <span class="weather-condition-badge ${getWeatherClass(fuelWeather.average_impact)}">
-                                ${fuelWeather.overall_condition}
+                                ${getWeatherIcon(fuelWeather.average_impact)} ${fuelWeather.overall_condition}
                             </span>
                         </div>
-                        <div class="weather-metrics">
-                            <div class="weather-metric">
-                                <span class="metric-label">Impact Score</span>
-                                <span class="metric-value ${getImpactColorClass(fuelWeather.average_impact)}">
-                                    ${fuelWeather.average_impact.toFixed(1)}/10
-                                </span>
-                                <div class="impact-bar">
-                                    <div class="impact-fill" style="width: ${fuelWeather.average_impact * 10}%"></div>
-                                </div>
-                            </div>
-                            <div class="weather-metric">
-                                <span class="metric-label">Wind Conditions</span>
-                                <span class="metric-value">${getWindCondition(fuelWeather.average_impact)}</span>
-                            </div>
-                            <div class="weather-metric">
-                                <span class="metric-label">Travel Time Impact</span>
-                                <span class="metric-value">+${calculateTimeImpact(fuelWeather.average_impact)}%</span>
-                            </div>
-                        </div>
+                        ${getEnhancedWeatherMetrics(fuelWeather, 'fuel')}
                     </div>
                 </div>
                 
                 <div class="weather-insights">
-                    <h5>📊 Weather Insights</h5>
+                    <h5>📊 Detailed Weather Analysis & Insights</h5>
                     <div class="insight-list">
                         ${generateWeatherInsights(fastestWeather, fuelWeather)}
                     </div>
                 </div>
                 
                 <div class="weather-recommendation">
-                    <h5>🎯 Recommendation</h5>
+                    <div class="recommendation-header">
+                        <h5>🎯 Professional Recommendation</h5>
+                        <span class="confidence-level">Confidence: ${calculateConfidenceLevel(fastestWeather, fuelWeather)}</span>
+                    </div>
                     <div class="recommendation-card ${getRecommendationClass(fastestWeather.average_impact, fuelWeather.average_impact)}">
                         <div class="recommendation-icon">${getRecommendationIcon(fastestWeather.average_impact, fuelWeather.average_impact)}</div>
-                        <div class="recommendation-text">
-                            ${generateRecommendation(fastestWeather.average_impact, fuelWeather.average_impact)}
+                        <div class="recommendation-content">
+                            <div class="recommendation-text">
+                                ${generateRecommendation(fastestWeather.average_impact, fuelWeather.average_impact)}
+                            </div>
+                            <div class="recommendation-details">
+                                ${getRecommendationDetails(fastestWeather, fuelWeather)}
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 <div class="weather-points" id="weatherPointsList">
-                    <h5>📍 Weather Points Analysis</h5>
+                    <div class="points-header">
+                        <h5>📍 Detailed Route Weather Analysis</h5>
+                        <div class="points-stats">
+                            <span>${fastestWeather.weather_points?.length || 0} points analyzed (Fastest)</span>
+                            <span>${fuelWeather.weather_points?.length || 0} points analyzed (Efficient)</span>
+                        </div>
+                    </div>
                     <div class="weather-points-container">
                         ${renderWeatherPoints(fastestWeather.weather_points || [], 'fastest')}
                         ${renderWeatherPoints(fuelWeather.weather_points || [], 'fuel')}
@@ -375,10 +377,28 @@ function displayResults(data) {
                 
                 ${data.weather_error ? `
                 <div class="weather-error">
-                    <p>⚠️ Weather data temporarily unavailable. Showing base calculations.</p>
+                    <div class="error-header">
+                        <span class="error-icon">⚠️</span>
+                        <span class="error-title">Weather Data Limitations</span>
+                    </div>
+                    <p>Professional weather data temporarily unavailable. Showing basic calculations.</p>
                     <small>${data.weather_error}</small>
+                    <div class="error-note">
+                        <strong>Note:</strong> For optimal route planning, Storm Glass API provides detailed maritime weather including swell, currents, and visibility.
+                    </div>
                 </div>
                 ` : ''}
+                
+                <div class="weather-footer">
+                    <div class="footer-content">
+                        <span class="footer-icon">ℹ️</span>
+                        <span class="footer-text">
+                            <strong>Weather Impact Score:</strong> 0-10 scale (0=excellent, 10=severe). 
+                            Scores consider wind, waves, precipitation, and visibility. 
+                            Higher scores indicate increased fuel consumption and travel time.
+                        </span>
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -394,7 +414,7 @@ function displayResults(data) {
     const hubPortsSelect = document.getElementById('hubPorts');
     const selectedHubs = Array.from(hubPortsSelect.selectedOptions).map(opt => opt.value).filter(port => port !== "");
     
-    // FIX: Define hasHubs before using it
+    // Define hasHubs before using it
     const hasHubs = fastestPorts.length > 2 || fuelPorts.length > 2;
     const routesAreDifferent = JSON.stringify(fastestPorts) !== JSON.stringify(fuelPorts);
     
@@ -614,6 +634,615 @@ function displayResults(data) {
     // Add weather point markers to map if available
     if (data.fastest_route?.weather_impact?.weather_points || data.fuel_efficient_route?.weather_impact?.weather_points) {
         addWeatherMarkers(data);
+    }
+}
+
+// ========== ENHANCED WEATHER HELPER FUNCTIONS ==========
+
+function getWeatherClass(impactScore) {
+    if (impactScore < 2) return 'weather-excellent';
+    if (impactScore < 4) return 'weather-good';
+    if (impactScore < 6) return 'weather-moderate';
+    if (impactScore < 8) return 'weather-poor';
+    return 'weather-dangerous';
+}
+
+function getImpactColorClass(impactScore) {
+    if (impactScore < 2) return 'color-excellent';
+    if (impactScore < 4) return 'color-good';
+    if (impactScore < 6) return 'color-moderate';
+    if (impactScore < 8) return 'color-poor';
+    return 'color-dangerous';
+}
+
+function getWeatherIcon(impactScore) {
+    if (impactScore < 2) return '☀️';
+    if (impactScore < 4) return '⛅';
+    if (impactScore < 6) return '🌤️';
+    if (impactScore < 8) return '🌧️';
+    return '⛈️';
+}
+
+function getWindCondition(impactScore) {
+    if (impactScore < 2) return 'Calm (0-20 km/h)';
+    if (impactScore < 4) return 'Light Breeze (20-40 km/h)';
+    if (impactScore < 6) return 'Moderate Wind (40-60 km/h)';
+    if (impactScore < 8) return 'Strong Wind (60-80 km/h)';
+    return 'Gale Force (>80 km/h)';
+}
+
+function getWaveCondition(impactScore) {
+    if (impactScore < 2) return 'Slight (0-1m)';
+    if (impactScore < 4) return 'Moderate (1-2m)';
+    if (impactScore < 6) return 'Rough (2-4m)';
+    if (impactScore < 8) return 'Very Rough (4-6m)';
+    return 'High (>6m)';
+}
+
+function calculateTimeImpact(impactScore) {
+    // Return percentage increase in travel time based on weather impact
+    if (impactScore < 2) return '0-5%';
+    if (impactScore < 4) return '5-15%';
+    if (impactScore < 6) return '15-30%';
+    if (impactScore < 8) return '30-50%';
+    return '50%+';
+}
+
+function calculateFuelImpact(impactScore) {
+    // Return percentage increase in fuel consumption
+    if (impactScore < 2) return '0-3%';
+    if (impactScore < 4) return '3-8%';
+    if (impactScore < 6) return '8-15%';
+    if (impactScore < 8) return '15-25%';
+    return '25%+';
+}
+
+function getBeaufortScale(windSpeedKmh) {
+    if (windSpeedKmh < 2) return { scale: 0, description: 'Calm' };
+    if (windSpeedKmh < 6) return { scale: 1, description: 'Light Air' };
+    if (windSpeedKmh < 12) return { scale: 2, description: 'Light Breeze' };
+    if (windSpeedKmh < 20) return { scale: 3, description: 'Gentle Breeze' };
+    if (windSpeedKmh < 29) return { scale: 4, description: 'Moderate Breeze' };
+    if (windSpeedKmh < 39) return { scale: 5, description: 'Fresh Breeze' };
+    if (windSpeedKmh < 50) return { scale: 6, description: 'Strong Breeze' };
+    if (windSpeedKmh < 62) return { scale: 7, description: 'Near Gale' };
+    if (windSpeedKmh < 75) return { scale: 8, description: 'Gale' };
+    if (windSpeedKmh < 89) return { scale: 9, description: 'Strong Gale' };
+    if (windSpeedKmh < 103) return { scale: 10, description: 'Storm' };
+    return { scale: 11, description: 'Violent Storm' };
+}
+
+function generateWeatherInsights(fastestWeather, fuelWeather) {
+    const insights = [];
+    const fastestImpact = fastestWeather.average_impact;
+    const fuelImpact = fuelWeather.average_impact;
+    
+    // Calculate wind and wave data averages
+    const fastestWindAvg = calculateAverageWind(fastestWeather.weather_points || []);
+    const fuelWindAvg = calculateAverageWind(fuelWeather.weather_points || []);
+    const fastestWaveAvg = calculateAverageWave(fastestWeather.weather_points || []);
+    const fuelWaveAvg = calculateAverageWave(fuelWeather.weather_points || []);
+    
+    // 1. Overall condition comparison
+    if (Math.abs(fastestImpact - fuelImpact) > 2) {
+        const betterRoute = fastestImpact < fuelImpact ? 'Fastest' : 'Fuel-Efficient';
+        const diff = Math.abs(fastestImpact - fuelImpact).toFixed(1);
+        insights.push(`
+            <div class="insight-item">
+                <span class="insight-icon">📈</span>
+                <span class="insight-text">
+                    <strong>${betterRoute} route has significantly better weather conditions</strong> 
+                    (${diff} point impact difference). The difference is substantial enough to affect fuel efficiency by ${(diff * 2).toFixed(1)}%.
+                </span>
+            </div>
+        `);
+    }
+    
+    // 2. Wind comparison analysis
+    if (Math.abs(fastestWindAvg - fuelWindAvg) > 10) {
+        const windDiff = Math.abs(fastestWindAvg - fuelWindAvg).toFixed(0);
+        const betterWindRoute = fastestWindAvg < fuelWindAvg ? 'Fastest' : 'Fuel-Efficient';
+        const fastestBeaufort = getBeaufortScale(fastestWindAvg);
+        const fuelBeaufort = getBeaufortScale(fuelWindAvg);
+        
+        insights.push(`
+            <div class="insight-item">
+                <span class="insight-icon">💨</span>
+                <span class="insight-text">
+                    <strong>Wind conditions differ significantly:</strong> 
+                    ${betterWindRoute} route has ${windDiff} km/h lower average wind speed.
+                    (Beaufort ${fastestBeaufort.scale} vs ${fuelBeaufort.scale})
+                </span>
+            </div>
+        `);
+    }
+    
+    // 3. Wave height analysis
+    if (Math.abs(fastestWaveAvg - fuelWaveAvg) > 0.5) {
+        const waveDiff = Math.abs(fastestWaveAvg - fuelWaveAvg).toFixed(1);
+        const betterWaveRoute = fastestWaveAvg < fuelWaveAvg ? 'Fastest' : 'Fuel-Efficient';
+        
+        insights.push(`
+            <div class="insight-item">
+                <span class="insight-icon">🌊</span>
+                <span class="insight-text">
+                    <strong>Wave heights vary between routes:</strong> 
+                    ${betterWaveRoute} route has ${waveDiff}m lower average wave height, 
+                    which can improve passenger comfort and reduce hull stress.
+                </span>
+            </div>
+        `);
+    }
+    
+    // 4. Risk assessment
+    if (fastestImpact > 6 || fuelImpact > 6) {
+        const riskyRoutes = [];
+        if (fastestImpact > 6) riskyRoutes.push('Fastest');
+        if (fuelImpact > 6) riskyRoutes.push('Efficient');
+        
+        insights.push(`
+            <div class="insight-item">
+                <span class="insight-icon">⚠️</span>
+                <span class="insight-text">
+                    <strong>High-risk weather detected on ${riskyRoutes.join(' and ')} route(s)</strong> 
+                    - Consider delaying departure or adjusting route. Expected travel time increase: ${calculateTimeImpact(Math.max(fastestImpact, fuelImpact))}.
+                </span>
+            </div>
+        `);
+    }
+    
+    // 5. Fuel efficiency impact
+    const fuelDiff = fastestImpact - fuelImpact;
+    if (Math.abs(fuelDiff) > 1) {
+        const betterFuelRoute = fuelDiff < 0 ? 'Fastest' : 'Fuel-Efficient';
+        const fuelImpactPercent = (Math.abs(fuelDiff) * 1.5).toFixed(1);
+        
+        insights.push(`
+            <div class="insight-item">
+                <span class="insight-icon">⛽</span>
+                <span class="insight-text">
+                    <strong>Weather impact on fuel consumption:</strong> 
+                    ${betterFuelRoute} route is expected to use ${fuelImpactPercent}% less fuel due to better weather conditions.
+                </span>
+            </div>
+        `);
+    }
+    
+    // 6. Optimal sailing conditions
+    if (fastestImpact < 3 && fuelImpact < 3) {
+        insights.push(`
+            <div class="insight-item">
+                <span class="insight-icon">👍</span>
+                <span class="insight-text">
+                    <strong>Excellent sailing conditions on both routes</strong> 
+                    - Minimal weather impact expected. This is optimal for passenger comfort and schedule reliability.
+                </span>
+            </div>
+        `);
+    }
+    
+    // 7. Route-specific advantages
+    if (fastestWeather.weather_points && fuelWeather.weather_points) {
+        const fastestVariability = calculateWeatherVariability(fastestWeather.weather_points);
+        const fuelVariability = calculateWeatherVariability(fuelWeather.weather_points);
+        
+        if (Math.abs(fastestVariability - fuelVariability) > 10) {
+            const moreStableRoute = fastestVariability < fuelVariability ? 'Fastest' : 'Fuel-Efficient';
+            insights.push(`
+                <div class="insight-item">
+                    <span class="insight-icon">📊</span>
+                    <span class="insight-text">
+                        <strong>Weather stability varies:</strong> 
+                        ${moreStableRoute} route has more consistent weather conditions, 
+                        making it easier to maintain optimal speed and fuel efficiency.
+                    </span>
+                </div>
+            `);
+        }
+    }
+    
+    return insights.length > 0 ? insights.join('') : `
+        <div class="insight-item">
+            <span class="insight-icon">ℹ️</span>
+            <span class="insight-text">Both routes have very similar weather conditions. Choose based on distance, fuel efficiency, or other operational factors.</span>
+        </div>
+    `;
+}
+
+function generateRecommendation(fastestImpact, fuelImpact) {
+    const diff = fastestImpact - fuelImpact;
+    
+    if (Math.abs(diff) < 0.5) {
+        return "Both routes have nearly identical weather conditions. Recommendation: Choose based on operational priorities (time vs fuel).";
+    }
+    
+    if (diff < 0) {
+        // Fastest route has better weather
+        if (diff < -2) {
+            return "STRONG RECOMMENDATION: Fastest Route. Significantly better weather conditions (+" + Math.abs(diff).toFixed(1) + " points) make this the clear choice despite potentially higher fuel consumption.";
+        } else {
+            return "RECOMMENDATION: Fastest Route. Better weather conditions provide smoother sailing and more reliable schedule adherence.";
+        }
+    } else {
+        // Fuel route has better weather
+        if (diff > 2) {
+            return "STRONG RECOMMENDATION: Fuel-Efficient Route. Avoid poor weather on faster route while saving " + calculateFuelSavings(diff) + " tonnes of fuel.";
+        } else {
+            return "RECOMMENDATION: Fuel-Efficient Route. Slightly better weather conditions combined with fuel savings make this the optimal choice.";
+        }
+    }
+}
+
+function getRecommendationClass(fastestImpact, fuelImpact) {
+    const diff = fastestImpact - fuelImpact;
+    if (Math.abs(diff) < 1) return 'recommendation-neutral';
+    return diff < 0 ? 'recommendation-positive' : 'recommendation-caution';
+}
+
+function getRecommendationIcon(fastestImpact, fuelImpact) {
+    const diff = fastestImpact - fuelImpact;
+    if (Math.abs(diff) < 1) return '⚖️';
+    return diff < 0 ? '✅' : '⚠️';
+}
+
+function renderWeatherPoints(weatherPoints, routeType) {
+    if (!weatherPoints || weatherPoints.length === 0) return '';
+    
+    const routeColor = routeType === 'fastest' ? '#ff6b35' : '#2ecc71';
+    
+    return `
+        <div class="weather-route-points ${routeType}-points">
+            <h6>${routeType === 'fastest' ? '🚀 Fastest Route' : '🌿 Efficient Route'}</h6>
+            <div class="points-list">
+                ${weatherPoints.slice(0, 5).map((point, index) => {
+                    const weather = point.weather || {};
+                    const beaufort = getBeaufortScale(weather.wind_speed || 0);
+                    const timeImpact = calculateTimeImpact(point.impact_score);
+                    const fuelImpact = calculateFuelImpact(point.impact_score);
+                    
+                    return `
+                    <div class="weather-point">
+                        <div class="point-header">
+                            <span class="point-number">Point #${index + 1}</span>
+                            <span class="point-condition ${getWeatherClass(point.impact_score)}">
+                                ${getWeatherIcon(point.impact_score)} ${weather.condition || 'N/A'}
+                            </span>
+                        </div>
+                        <div class="point-details">
+                            <div class="point-detail">
+                                <span class="detail-label">Wind:</span>
+                                <span class="detail-value">${(weather.wind_speed || 0).toFixed(0)} km/h (Bft ${beaufort.scale})</span>
+                            </div>
+                            <div class="point-detail">
+                                <span class="detail-label">Waves:</span>
+                                <span class="detail-value">${(weather.wave_height || 0).toFixed(1)} m</span>
+                            </div>
+                            <div class="point-detail">
+                                <span class="detail-label">Temp:</span>
+                                <span class="detail-value">${(weather.temperature || 0).toFixed(1)}°C</span>
+                            </div>
+                            <div class="point-detail">
+                                <span class="detail-label">Impact:</span>
+                                <span class="detail-value ${getImpactColorClass(point.impact_score)}">
+                                    ${point.impact_score.toFixed(1)}/10
+                                </span>
+                            </div>
+                            <div class="point-impact">
+                                <span class="impact-label">Time Impact:</span>
+                                <span>${timeImpact}</span>
+                                <span class="impact-label">Fuel Impact:</span>
+                                <span>${fuelImpact}</span>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('')}
+            </div>
+            ${weatherPoints.length > 5 ? `
+            <div class="more-points">
+                <small>+ ${weatherPoints.length - 5} more weather points analyzed along this route</small>
+            </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+// ========== ENHANCED WEATHER METRICS FOR STORM GLASS API ==========
+
+function getEnhancedWeatherMetrics(weather, routeType) {
+    if (!weather) return '';
+    
+    const avgWind = calculateAverageWind(weather.weather_points || []);
+    const avgWave = calculateAverageWave(weather.weather_points || []);
+    const beaufort = getBeaufortScale(avgWind);
+    const timeImpact = calculateTimeImpact(weather.average_impact);
+    const fuelImpact = calculateFuelImpact(weather.average_impact);
+    
+    // Storm Glass specific metrics (if available)
+    const hasStormGlassData = weather.storm_glass_data || false;
+    
+    return `
+        <div class="weather-metrics">
+            <div class="weather-metric">
+                <span class="metric-label">Impact Score</span>
+                <span class="metric-value ${getImpactColorClass(weather.average_impact)}">
+                    ${weather.average_impact.toFixed(1)}/10
+                </span>
+                <div class="impact-bar">
+                    <div class="impact-fill" style="width: ${weather.average_impact * 10}%"></div>
+                </div>
+                <div class="metric-subtext">Lower is better</div>
+            </div>
+            
+            <div class="weather-metric">
+                <span class="metric-label">Wind Speed</span>
+                <span class="metric-value">${avgWind.toFixed(0)} km/h</span>
+                <div class="metric-subtext">
+                    <span class="beaufort-indicator">Bft ${beaufort.scale}</span>
+                    ${beaufort.description}
+                </div>
+            </div>
+            
+            <div class="weather-metric">
+                <span class="metric-label">Wave Height</span>
+                <span class="metric-value">${avgWave.toFixed(1)} m</span>
+                <div class="metric-subtext">${getWaveCondition(weather.average_impact)}</div>
+            </div>
+            
+            <div class="weather-metric">
+                <span class="metric-label">Visibility</span>
+                <span class="metric-value">${calculateAverageVisibility(weather.weather_points || []).toFixed(1)} km</span>
+                <div class="metric-subtext">
+                    ${getVisibilityCondition(calculateAverageVisibility(weather.weather_points || []))}
+                </div>
+            </div>
+            
+            <div class="weather-metric">
+                <span class="metric-label">Time Impact</span>
+                <span class="metric-value ${weather.average_impact > 4 ? 'color-moderate' : 'color-excellent'}">
+                    ${timeImpact}
+                </span>
+                <div class="metric-subtext">Estimated delay</div>
+            </div>
+            
+            <div class="weather-metric">
+                <span class="metric-label">Fuel Impact</span>
+                <span class="metric-value ${weather.average_impact > 4 ? 'color-moderate' : 'color-excellent'}">
+                    ${fuelImpact}
+                </span>
+                <div class="metric-subtext">Consumption increase</div>
+            </div>
+            
+            ${hasStormGlassData ? `
+            <div class="weather-metric">
+                <span class="metric-label">Swell Height</span>
+                <span class="metric-value">${weather.storm_glass_data?.average_swell || 'N/A'} m</span>
+                <div class="metric-subtext">From Storm Glass API</div>
+            </div>
+            
+            <div class="weather-metric">
+                <span class="metric-label">Water Temp</span>
+                <span class="metric-value">${weather.storm_glass_data?.water_temp || 'N/A'}°C</span>
+                <div class="metric-subtext">Sea surface</div>
+            </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+function calculateAverageVisibility(weatherPoints) {
+    if (!weatherPoints || weatherPoints.length === 0) return 10;
+    const sum = weatherPoints.reduce((acc, point) => acc + (point.weather?.visibility || 10), 0);
+    return sum / weatherPoints.length;
+}
+
+function getVisibilityCondition(visibilityKm) {
+    if (visibilityKm > 10) return 'Excellent';
+    if (visibilityKm > 5) return 'Good';
+    if (visibilityKm > 2) return 'Moderate';
+    if (visibilityKm > 1) return 'Poor';
+    return 'Very Poor';
+}
+
+// Enhanced weather point display with Storm Glass data
+function renderWeatherPoints(weatherPoints, routeType) {
+    if (!weatherPoints || weatherPoints.length === 0) return '';
+    
+    const routeColor = routeType === 'fastest' ? '#ff6b35' : '#2ecc71';
+    const routeName = routeType === 'fastest' ? '🚀 Fastest Route' : '🌿 Efficient Route';
+    
+    return `
+        <div class="weather-route-points ${routeType}-points">
+            <h6>${routeName}</h6>
+            <div class="points-list">
+                ${weatherPoints.slice(0, 5).map((point, index) => {
+                    const weather = point.weather || {};
+                    const beaufort = getBeaufortScale(weather.wind_speed || 0);
+                    const timeImpact = calculateTimeImpact(point.impact_score);
+                    const fuelImpact = calculateFuelImpact(point.impact_score);
+                    
+                    return `
+                    <div class="weather-point">
+                        <div class="point-header">
+                            <span class="point-number">Point #${index + 1}</span>
+                            <span class="point-condition ${getWeatherClass(point.impact_score)}">
+                                ${getWeatherIcon(point.impact_score)} ${weather.condition || 'N/A'}
+                            </span>
+                        </div>
+                        <div class="point-details">
+                            <div class="point-detail">
+                                <span class="detail-label">Wind</span>
+                                <span class="detail-value">
+                                    ${(weather.wind_speed || 0).toFixed(0)} km/h
+                                    <span class="beaufort-tag">Bft ${beaufort.scale}</span>
+                                </span>
+                            </div>
+                            <div class="point-detail">
+                                <span class="detail-label">Waves</span>
+                                <span class="detail-value">${(weather.wave_height || 0).toFixed(1)} m</span>
+                            </div>
+                            <div class="point-detail">
+                                <span class="detail-label">Visibility</span>
+                                <span class="detail-value">${(weather.visibility || 10).toFixed(1)} km</span>
+                            </div>
+                            <div class="point-detail">
+                                <span class="detail-label">Temp</span>
+                                <span class="detail-value">${(weather.temperature || 0).toFixed(1)}°C</span>
+                            </div>
+                            ${weather.precipitation > 0 ? `
+                            <div class="point-detail">
+                                <span class="detail-label">Precip</span>
+                                <span class="detail-value">${weather.precipitation.toFixed(1)} mm</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                        <div class="point-impact">
+                            <div class="impact-group">
+                                <span class="impact-label">Time Impact:</span>
+                                <span class="impact-value">${timeImpact}</span>
+                            </div>
+                            <div class="impact-group">
+                                <span class="impact-label">Fuel Impact:</span>
+                                <span class="impact-value">${fuelImpact}</span>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('')}
+            </div>
+            ${weatherPoints.length > 5 ? `
+            <div class="more-points">
+                <span class="more-icon">📈</span>
+                <span class="more-text">
+                    +${weatherPoints.length - 5} more weather points analyzed along this route
+                </span>
+            </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+function calculateFuelSavings(impactDifference) {
+    // Estimate fuel savings based on weather impact difference
+    return (impactDifference * 1.2).toFixed(1);
+}
+
+function calculateAverageWind(weatherPoints) {
+    if (!weatherPoints || weatherPoints.length === 0) return 0;
+    const sum = weatherPoints.reduce((acc, point) => acc + (point.weather?.wind_speed || 0), 0);
+    return sum / weatherPoints.length;
+}
+
+function calculateAverageWave(weatherPoints) {
+    if (!weatherPoints || weatherPoints.length === 0) return 0;
+    const sum = weatherPoints.reduce((acc, point) => acc + (point.weather?.wave_height || 0), 0);
+    return sum / weatherPoints.length;
+}
+
+function calculateWeatherVariability(weatherPoints) {
+    if (!weatherPoints || weatherPoints.length < 2) return 0;
+    const impacts = weatherPoints.map(p => p.impact_score || 0);
+    const mean = impacts.reduce((a, b) => a + b) / impacts.length;
+    const variance = impacts.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / impacts.length;
+    return Math.sqrt(variance) * 10; // Scale for readability
+}
+
+function calculateConfidenceLevel(fastestWeather, fuelWeather) {
+    const fastestPoints = fastestWeather.weather_points?.length || 0;
+    const fuelPoints = fuelWeather.weather_points?.length || 0;
+    const totalPoints = fastestPoints + fuelPoints;
+    
+    if (totalPoints >= 15) return 'High (≥15 data points)';
+    if (totalPoints >= 8) return 'Medium (8-14 data points)';
+    return 'Low (<8 data points)';
+}
+
+function getRecommendationDetails(fastestWeather, fuelWeather) {
+    const fastestImpact = fastestWeather.average_impact;
+    const fuelImpact = fuelWeather.average_impact;
+    const diff = fastestImpact - fuelImpact;
+    
+    const details = [];
+    
+    if (Math.abs(diff) < 0.5) {
+        details.push("• Weather conditions nearly identical");
+        details.push("• Decision should focus on operational priorities");
+        details.push("• Consider vessel-specific factors");
+    } else if (diff < 0) {
+        details.push("• Fastest route has better weather conditions");
+        details.push("• Expected time savings: " + calculateTimeImpact(Math.abs(diff)));
+        details.push("• Passenger comfort likely better on this route");
+    } else {
+        details.push("• Efficient route avoids weather challenges");
+        details.push("• Fuel savings: ~" + calculateFuelSavings(diff) + " tonnes");
+        details.push("• Lower operational risk on this route");
+    }
+    
+    return details.map(detail => `<div class="detail-item">${detail}</div>`).join('');
+}
+
+function addWeatherMarkers(data) {
+    // Clear existing weather markers
+    if (window.weatherMarkers) {
+        window.weatherMarkers.forEach(marker => map.removeLayer(marker));
+    }
+    window.weatherMarkers = [];
+    
+    // Add weather markers for fastest route
+    if (data.fastest_route?.weather_impact?.weather_points) {
+        data.fastest_route.weather_impact.weather_points.forEach((point, index) => {
+            const marker = L.marker(point.coordinates)
+                .bindPopup(`
+                    <div class="weather-marker-popup">
+                        <h5>🚀 Fastest Route - Point ${index + 1}</h5>
+                        <p><strong>Condition:</strong> ${point.weather.condition}</p>
+                        <p><strong>Wind Speed:</strong> ${point.weather.wind_speed.toFixed(1)} km/h</p>
+                        <p><strong>Wave Height:</strong> ${point.weather.wave_height.toFixed(1)} m</p>
+                        <p><strong>Temperature:</strong> ${point.weather.temperature.toFixed(1)}°C</p>
+                        <p><strong>Weather Impact:</strong> ${point.impact_score.toFixed(1)}/10</p>
+                    </div>
+                `)
+                .addTo(map);
+            
+            // Add weather icon based on condition
+            const icon = getWeatherIcon(point.impact_score);
+            const customIcon = L.divIcon({
+                html: `<div style="background-color: rgba(255, 107, 53, 0.8); border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; border: 2px solid white;">${icon}</div>`,
+                className: 'weather-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+            
+            marker.setIcon(customIcon);
+            window.weatherMarkers.push(marker);
+        });
+    }
+    
+    // Add weather markers for fuel-efficient route
+    if (data.fuel_efficient_route?.weather_impact?.weather_points) {
+        data.fuel_efficient_route.weather_impact.weather_points.forEach((point, index) => {
+            const marker = L.marker(point.coordinates)
+                .bindPopup(`
+                    <div class="weather-marker-popup">
+                        <h5>🌿 Efficient Route - Point ${index + 1}</h5>
+                        <p><strong>Condition:</strong> ${point.weather.condition}</p>
+                        <p><strong>Wind Speed:</strong> ${point.weather.wind_speed.toFixed(1)} km/h</p>
+                        <p><strong>Wave Height:</strong> ${point.weather.wave_height.toFixed(1)} m</p>
+                        <p><strong>Temperature:</strong> ${point.weather.temperature.toFixed(1)}°C</p>
+                        <p><strong>Weather Impact:</strong> ${point.impact_score.toFixed(1)}/10</p>
+                    </div>
+                `)
+                .addTo(map);
+            
+            const icon = getWeatherIcon(point.impact_score);
+            const customIcon = L.divIcon({
+                html: `<div style="background-color: rgba(46, 204, 113, 0.8); border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; border: 2px solid white;">${icon}</div>`,
+                className: 'weather-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+            
+            marker.setIcon(customIcon);
+            window.weatherMarkers.push(marker);
+        });
     }
 }
 

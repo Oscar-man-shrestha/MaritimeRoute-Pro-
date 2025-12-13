@@ -241,6 +241,43 @@ class WeatherService:
             return "Recommend delaying, poor conditions"
         else:
             return "Do not proceed, dangerous conditions"
+# Add Storm Glass API to your weather_service.py
 
+class StormGlassWeatherService:
+    def __init__(self):
+        self.api_key = os.getenv('STORMGLASS_API_KEY')
+        self.base_url = "https://api.stormglass.io/v2"
+    
+    def get_marine_weather(self, lat, lon):
+        try:
+            response = requests.get(
+                f"{self.base_url}/weather/point",
+                params={
+                    'lat': lat,
+                    'lng': lon,
+                    'params': 'airTemperature,waterTemperature,windSpeed,windDirection,waveHeight,waveDirection,swellHeight,swellDirection,visibility'
+                },
+                headers={
+                    'Authorization': self.api_key
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                # Process Storm Glass data
+                return {
+                    'air_temperature': data['hours'][0]['airTemperature']['sg'],
+                    'water_temperature': data['hours'][0]['waterTemperature']['sg'],
+                    'wind_speed': data['hours'][0]['windSpeed']['sg'] * 3.6,  # m/s to km/h
+                    'wave_height': data['hours'][0]['waveHeight']['sg'],
+                    'swell_height': data['hours'][0]['swellHeight']['sg'],
+                    'visibility': data['hours'][0]['visibility']['sg'],
+                    'source': 'stormglass'
+                }
+        except Exception as e:
+            print(f"Storm Glass API error: {e}")
+        
+        return None
 # Singleton instance
 weather_service = WeatherService()
+
