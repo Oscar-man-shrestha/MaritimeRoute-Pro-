@@ -233,7 +233,31 @@
                                 </label>
                             </div>
                         </div>
-
+<!-- In the form section, add weather toggle -->
+<div class="form-group">
+    <label class="form-label">
+        <span class="label-icon">🌤️</span>
+        Weather Integration
+    </label>
+    <div class="radio-group" style="flex-direction: row; gap: 1rem;">
+        <label class="radio-option" style="flex: 1;">
+            <input type="radio" name="weather" value="true" checked>
+            <span class="radio-custom"></span>
+            <span class="radio-label">
+                <strong>Include Weather Data</strong>
+                <small>Real-time conditions</small>
+            </span>
+        </label>
+        <label class="radio-option" style="flex: 1;">
+            <input type="radio" name="weather" value="false">
+            <span class="radio-custom"></span>
+            <span class="radio-label">
+                <strong>Ignore Weather</strong>
+                <small>Historical averages</small>
+            </span>
+        </label>
+    </div>
+</div>
                         <button id="calculateBtn" class="btn-primary calculate-btn">
                             <span class="btn-icon">🚀</span>
                             Calculate Optimal Routes

@@ -187,7 +187,7 @@ async function calculateRoutes() {
     const hubPortsSelect = document.getElementById('hubPorts');
     const hubPorts = Array.from(hubPortsSelect.selectedOptions).map(opt => opt.value).filter(port => port !== "");
     const goal = document.querySelector('input[name="goal"]:checked').value;
-    
+    const includeWeather = document.querySelector('input[name="weather"]:checked').value === 'true';
     console.log('🚢 Sending to backend:', {
         startPort,
         destinationPort,
@@ -221,7 +221,8 @@ async function calculateRoutes() {
                 start_port: startPort,
                 destination_port: destinationPort,
                 hub_ports: hubPorts,
-                goal: goal
+                goal: goal,
+                include_weather: includeWeather
             })
         });
         
@@ -264,9 +265,123 @@ function safeNumberFormat(value, decimals = 2) {
 
 function displayResults(data) {
     const resultsPanel = document.getElementById('resultsPanel');
-    const comparisonDiv = resultsPanel.querySelector('.route-comparison');
+    const comparisonDiv = document.querySelector('.route-comparison');
     
     resultsPanel.style.display = 'block';
+    
+    // ========== ENHANCED WEATHER DISPLAY ==========
+    let weatherHTML = '';
+    if (data.weather_recommendation && comparisonDiv) {
+        const fastestWeather = data.fastest_route?.weather_impact || null;
+        const fuelWeather = data.fuel_efficient_route?.weather_impact || null;
+        
+        weatherHTML = `
+            <div class="weather-dashboard">
+                <div class="weather-header">
+                    <h4>🌤️ Real-Time Weather Analysis</h4>
+                    <span class="weather-last-updated">Updated: ${new Date().toLocaleTimeString()}</span>
+                </div>
+                
+                <div class="weather-summary">
+                    <p>${data.weather_recommendation}</p>
+                </div>
+                
+                ${fastestWeather && fuelWeather ? `
+                <div class="weather-comparison">
+                    <div class="weather-route-card fastest-weather">
+                        <div class="weather-route-header">
+                            <span class="weather-route-icon">🚀</span>
+                            <span class="weather-route-title">Fastest Route</span>
+                            <span class="weather-condition-badge ${getWeatherClass(fastestWeather.average_impact)}">
+                                ${fastestWeather.overall_condition}
+                            </span>
+                        </div>
+                        <div class="weather-metrics">
+                            <div class="weather-metric">
+                                <span class="metric-label">Impact Score</span>
+                                <span class="metric-value ${getImpactColorClass(fastestWeather.average_impact)}">
+                                    ${fastestWeather.average_impact.toFixed(1)}/10
+                                </span>
+                                <div class="impact-bar">
+                                    <div class="impact-fill" style="width: ${fastestWeather.average_impact * 10}%"></div>
+                                </div>
+                            </div>
+                            <div class="weather-metric">
+                                <span class="metric-label">Wind Conditions</span>
+                                <span class="metric-value">${getWindCondition(fastestWeather.average_impact)}</span>
+                            </div>
+                            <div class="weather-metric">
+                                <span class="metric-label">Travel Time Impact</span>
+                                <span class="metric-value">+${calculateTimeImpact(fastestWeather.average_impact)}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="weather-route-card fuel-weather">
+                        <div class="weather-route-header">
+                            <span class="weather-route-icon">🌿</span>
+                            <span class="weather-route-title">Efficient Route</span>
+                            <span class="weather-condition-badge ${getWeatherClass(fuelWeather.average_impact)}">
+                                ${fuelWeather.overall_condition}
+                            </span>
+                        </div>
+                        <div class="weather-metrics">
+                            <div class="weather-metric">
+                                <span class="metric-label">Impact Score</span>
+                                <span class="metric-value ${getImpactColorClass(fuelWeather.average_impact)}">
+                                    ${fuelWeather.average_impact.toFixed(1)}/10
+                                </span>
+                                <div class="impact-bar">
+                                    <div class="impact-fill" style="width: ${fuelWeather.average_impact * 10}%"></div>
+                                </div>
+                            </div>
+                            <div class="weather-metric">
+                                <span class="metric-label">Wind Conditions</span>
+                                <span class="metric-value">${getWindCondition(fuelWeather.average_impact)}</span>
+                            </div>
+                            <div class="weather-metric">
+                                <span class="metric-label">Travel Time Impact</span>
+                                <span class="metric-value">+${calculateTimeImpact(fuelWeather.average_impact)}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="weather-insights">
+                    <h5>📊 Weather Insights</h5>
+                    <div class="insight-list">
+                        ${generateWeatherInsights(fastestWeather, fuelWeather)}
+                    </div>
+                </div>
+                
+                <div class="weather-recommendation">
+                    <h5>🎯 Recommendation</h5>
+                    <div class="recommendation-card ${getRecommendationClass(fastestWeather.average_impact, fuelWeather.average_impact)}">
+                        <div class="recommendation-icon">${getRecommendationIcon(fastestWeather.average_impact, fuelWeather.average_impact)}</div>
+                        <div class="recommendation-text">
+                            ${generateRecommendation(fastestWeather.average_impact, fuelWeather.average_impact)}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="weather-points" id="weatherPointsList">
+                    <h5>📍 Weather Points Analysis</h5>
+                    <div class="weather-points-container">
+                        ${renderWeatherPoints(fastestWeather.weather_points || [], 'fastest')}
+                        ${renderWeatherPoints(fuelWeather.weather_points || [], 'fuel')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${data.weather_error ? `
+                <div class="weather-error">
+                    <p>⚠️ Weather data temporarily unavailable. Showing base calculations.</p>
+                    <small>${data.weather_error}</small>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    }
     
     // Safe data access with defaults
     const fastestRoute = data.fastest_route || {};
@@ -362,7 +477,8 @@ function displayResults(data) {
         }).join(' → ');
     }
     
-    comparisonDiv.innerHTML = `
+    // ========== UPDATE COMPARISON DIV HTML ==========
+    comparisonDiv.innerHTML = weatherHTML + `
         ${!hasHubs && selectedHubs.length === 0 ? `
         <div class="route-suggestion">
             <p>💡 <strong>Tip:</strong> Select intermediate ports to see different route options!</p>
@@ -377,6 +493,12 @@ function displayResults(data) {
                     <span class="route-icon">🚀</span>
                     <span class="route-title">Fastest Route</span>
                     ${fastestPorts.length > 2 ? '<span class="route-badge">With Intermediate Ports</span>' : '<span class="route-badge">Direct Route</span>'}
+                    ${fastestRoute.weather_impact ? `
+                    <span class="weather-indicator ${getWeatherClass(fastestRoute.weather_impact.average_impact)}">
+                        ${getWeatherIcon(fastestRoute.weather_impact.average_impact)}
+                        ${fastestRoute.weather_impact.overall_condition}
+                    </span>
+                    ` : ''}
                 </div>
                 <div class="route-path">
                     <strong>Path:</strong> 
@@ -414,6 +536,12 @@ function displayResults(data) {
                     <span class="route-icon">🌿</span>
                     <span class="route-title">Fuel-Efficient Route</span>
                     ${fuelPorts.length > 2 ? '<span class="route-badge">With Intermediate Ports</span>' : '<span class="route-badge">Direct Route</span>'}
+                    ${fuelRoute.weather_impact ? `
+                    <span class="weather-indicator ${getWeatherClass(fuelRoute.weather_impact.average_impact)}">
+                        ${getWeatherIcon(fuelRoute.weather_impact.average_impact)}
+                        ${fuelRoute.weather_impact.overall_condition}
+                    </span>
+                    ` : ''}
                 </div>
                 <div class="route-path">
                     <strong>Path:</strong> 
@@ -482,10 +610,262 @@ function displayResults(data) {
     } else {
         resultsMeta.textContent = 'Calculating...';
     }
+    
+    // Add weather point markers to map if available
+    if (data.fastest_route?.weather_impact?.weather_points || data.fuel_efficient_route?.weather_impact?.weather_points) {
+        addWeatherMarkers(data);
+    }
+}
+
+// ========== WEATHER HELPER FUNCTIONS ==========
+
+function getWeatherClass(impactScore) {
+    if (impactScore < 2) return 'weather-excellent';
+    if (impactScore < 4) return 'weather-good';
+    if (impactScore < 6) return 'weather-moderate';
+    if (impactScore < 8) return 'weather-poor';
+    return 'weather-dangerous';
+}
+
+function getImpactColorClass(impactScore) {
+    if (impactScore < 2) return 'color-excellent';
+    if (impactScore < 4) return 'color-good';
+    if (impactScore < 6) return 'color-moderate';
+    if (impactScore < 8) return 'color-poor';
+    return 'color-dangerous';
+}
+
+function getWeatherIcon(impactScore) {
+    if (impactScore < 2) return '☀️';
+    if (impactScore < 4) return '⛅';
+    if (impactScore < 6) return '🌤️';
+    if (impactScore < 8) return '🌧️';
+    return '⛈️';
+}
+
+function getWindCondition(impactScore) {
+    if (impactScore < 2) return 'Calm (0-20 km/h)';
+    if (impactScore < 4) return 'Light Breeze (20-40 km/h)';
+    if (impactScore < 6) return 'Moderate Wind (40-60 km/h)';
+    if (impactScore < 8) return 'Strong Wind (60-80 km/h)';
+    return 'Gale Force (>80 km/h)';
+}
+
+function calculateTimeImpact(impactScore) {
+    // Return percentage increase in travel time
+    if (impactScore < 2) return '0-10';
+    if (impactScore < 4) return '10-30';
+    if (impactScore < 6) return '30-60';
+    if (impactScore < 8) return '60-100';
+    return '100+';
+}
+
+function generateWeatherInsights(fastestWeather, fuelWeather) {
+    const insights = [];
+    const fastestImpact = fastestWeather.average_impact;
+    const fuelImpact = fuelWeather.average_impact;
+    
+    if (Math.abs(fastestImpact - fuelImpact) > 2) {
+        const betterRoute = fastestImpact < fuelImpact ? 'Fastest' : 'Fuel-Efficient';
+        insights.push(`
+            <div class="insight-item">
+                <span class="insight-icon">📈</span>
+                <span class="insight-text">
+                    <strong>${betterRoute} route has significantly better weather conditions</strong> 
+                    (${Math.abs(fastestImpact - fuelImpact).toFixed(1)} point difference)
+                </span>
+            </div>
+        `);
+    }
+    
+    if (fastestImpact > 6 || fuelImpact > 6) {
+        insights.push(`
+            <div class="insight-item">
+                <span class="insight-icon">⚠️</span>
+                <span class="insight-text">
+                    <strong>Potential delays expected</strong> due to poor weather conditions 
+                    (${fastestImpact > 6 ? 'Fastest route' : ''}${fastestImpact > 6 && fuelImpact > 6 ? ' and ' : ''}${fuelImpact > 6 ? 'Efficient route' : ''})
+                </span>
+            </div>
+        `);
+    }
+    
+    if (fastestImpact < 3 && fuelImpact < 3) {
+        insights.push(`
+            <div class="insight-item">
+                <span class="insight-icon">👍</span>
+                <span class="insight-text">
+                    <strong>Excellent sailing conditions</strong> on both routes. Minimal weather impact expected.
+                </span>
+            </div>
+        `);
+    }
+    
+    // Add fuel consumption insight
+    const fuelDiff = fastestImpact - fuelImpact;
+    if (Math.abs(fuelDiff) > 1) {
+        insights.push(`
+            <div class="insight-item">
+                <span class="insight-icon">⛽</span>
+                <span class="insight-text">
+                    <strong>Weather may affect fuel efficiency</strong> by 
+                    ${Math.abs(fuelDiff).toFixed(1)}% between routes.
+                </span>
+            </div>
+        `);
+    }
+    
+    return insights.length > 0 ? insights.join('') : `
+        <div class="insight-item">
+            <span class="insight-icon">ℹ️</span>
+            <span class="insight-text">Both routes have similar weather conditions.</span>
+        </div>
+    `;
+}
+
+function generateRecommendation(fastestImpact, fuelImpact) {
+    const diff = fastestImpact - fuelImpact;
+    
+    if (Math.abs(diff) < 1) {
+        return "Both routes have similar weather conditions. Choose based on other factors.";
+    }
+    
+    if (diff < 0) {
+        // Fastest route has better weather
+        if (diff < -2) {
+            return "Strongly recommend Fastest Route due to significantly better weather conditions.";
+        } else {
+            return "Weather slightly favors Fastest Route. Consider taking it for smoother sailing.";
+        }
+    } else {
+        // Fuel route has better weather
+        if (diff > 2) {
+            return "Strongly recommend Fuel-Efficient Route to avoid poor weather on faster route.";
+        } else {
+            return "Weather conditions are better on Fuel-Efficient Route. Consider the trade-off.";
+        }
+    }
+}
+
+function getRecommendationClass(fastestImpact, fuelImpact) {
+    const diff = fastestImpact - fuelImpact;
+    if (Math.abs(diff) < 1) return 'recommendation-neutral';
+    return diff < 0 ? 'recommendation-positive' : 'recommendation-caution';
+}
+
+function getRecommendationIcon(fastestImpact, fuelImpact) {
+    const diff = fastestImpact - fuelImpact;
+    if (Math.abs(diff) < 1) return '⚖️';
+    return diff < 0 ? '✅' : '⚠️';
+}
+
+function renderWeatherPoints(weatherPoints, routeType) {
+    if (!weatherPoints || weatherPoints.length === 0) return '';
+    
+    return `
+        <div class="weather-route-points ${routeType}-points">
+            <h6>${routeType === 'fastest' ? '🚀 Fastest Route' : '🌿 Efficient Route'}</h6>
+            <div class="points-list">
+                ${weatherPoints.slice(0, 5).map((point, index) => `
+                    <div class="weather-point">
+                        <div class="point-header">
+                            <span class="point-number">#${index + 1}</span>
+                            <span class="point-condition ${getWeatherClass(point.impact_score)}">
+                                ${getWeatherIcon(point.impact_score)} ${point.weather.condition}
+                            </span>
+                        </div>
+                        <div class="point-details">
+                            <div class="point-detail">
+                                <span class="detail-label">Wind:</span>
+                                <span class="detail-value">${point.weather.wind_speed.toFixed(0)} km/h</span>
+                            </div>
+                            <div class="point-detail">
+                                <span class="detail-label">Waves:</span>
+                                <span class="detail-value">${point.weather.wave_height.toFixed(1)} m</span>
+                            </div>
+                            <div class="point-detail">
+                                <span class="detail-label">Impact:</span>
+                                <span class="detail-value ${getImpactColorClass(point.impact_score)}">
+                                    ${point.impact_score.toFixed(1)}/10
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function addWeatherMarkers(data) {
+    // Clear existing weather markers
+    if (window.weatherMarkers) {
+        window.weatherMarkers.forEach(marker => map.removeLayer(marker));
+    }
+    window.weatherMarkers = [];
+    
+    // Add weather markers for fastest route
+    if (data.fastest_route?.weather_impact?.weather_points) {
+        data.fastest_route.weather_impact.weather_points.forEach((point, index) => {
+            const marker = L.marker(point.coordinates)
+                .bindPopup(`
+                    <div class="weather-marker-popup">
+                        <h5>🚀 Fastest Route - Point ${index + 1}</h5>
+                        <p><strong>Condition:</strong> ${point.weather.condition}</p>
+                        <p><strong>Wind Speed:</strong> ${point.weather.wind_speed.toFixed(1)} km/h</p>
+                        <p><strong>Wave Height:</strong> ${point.weather.wave_height.toFixed(1)} m</p>
+                        <p><strong>Temperature:</strong> ${point.weather.temperature.toFixed(1)}°C</p>
+                        <p><strong>Weather Impact:</strong> ${point.impact_score.toFixed(1)}/10</p>
+                    </div>
+                `)
+                .addTo(map);
+            
+            // Add weather icon based on condition
+            const icon = getWeatherIcon(point.impact_score);
+            const customIcon = L.divIcon({
+                html: `<div style="background-color: rgba(255, 107, 53, 0.8); border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; border: 2px solid white;">${icon}</div>`,
+                className: 'weather-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+            
+            marker.setIcon(customIcon);
+            window.weatherMarkers.push(marker);
+        });
+    }
+    
+    // Add weather markers for fuel-efficient route
+    if (data.fuel_efficient_route?.weather_impact?.weather_points) {
+        data.fuel_efficient_route.weather_impact.weather_points.forEach((point, index) => {
+            const marker = L.marker(point.coordinates)
+                .bindPopup(`
+                    <div class="weather-marker-popup">
+                        <h5>🌿 Efficient Route - Point ${index + 1}</h5>
+                        <p><strong>Condition:</strong> ${point.weather.condition}</p>
+                        <p><strong>Wind Speed:</strong> ${point.weather.wind_speed.toFixed(1)} km/h</p>
+                        <p><strong>Wave Height:</strong> ${point.weather.wave_height.toFixed(1)} m</p>
+                        <p><strong>Temperature:</strong> ${point.weather.temperature.toFixed(1)}°C</p>
+                        <p><strong>Weather Impact:</strong> ${point.impact_score.toFixed(1)}/10</p>
+                    </div>
+                `)
+                .addTo(map);
+            
+            const icon = getWeatherIcon(point.impact_score);
+            const customIcon = L.divIcon({
+                html: `<div style="background-color: rgba(46, 204, 113, 0.8); border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; border: 2px solid white;">${icon}</div>`,
+                className: 'weather-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+            
+            marker.setIcon(customIcon);
+            window.weatherMarkers.push(marker);
+        });
+    }
 }
 
 function displayRoutesOnMap(data) {
-    // Clear existing routes and markers
+    // Clear existing layers
     Object.values(routeLayers).forEach(layer => {
         if (layer) map.removeLayer(layer);
     });
@@ -493,85 +873,195 @@ function displayRoutesOnMap(data) {
     portMarkers.forEach(marker => map.removeLayer(marker));
     portMarkers = [];
     
-    // Show legend
-    document.getElementById('mapLegend').style.display = 'block';
+    // Check if we have valid data - FIXED: Use safe access
+    if (!data) {
+        console.warn('⚠️ No data provided to displayRoutesOnMap');
+        return;
+    }
     
-    // Safe data access
+    // FIX: Define comparisonDiv properly by getting the DOM element
+    const comparisonDiv = document.querySelector('.route-comparison');
+    
+    // Get route data safely
     const fastestRoute = data.fastest_route || {};
     const fuelRoute = data.fuel_efficient_route || {};
     const directRoute = data.direct_route || {};
     
-    // Add fastest route (orange)
-    if (fastestRoute.coordinates && fastestRoute.coordinates.length > 0) {
-        routeLayers.fastest = L.polyline(fastestRoute.coordinates, {
-            color: '#ff6b35',
-            weight: 5,
-            opacity: 0.8,
-            smoothFactor: 1
+    const fastestPorts = fastestRoute.ports || [];
+    const fuelPorts = fuelRoute.ports || [];
+    
+    // Only proceed if we have coordinates
+    if (!fastestRoute.coordinates && !fuelRoute.coordinates) {
+        console.warn('⚠️ No route coordinates to display on map');
+        return;
+    }
+    
+    // Draw routes
+    if (fastestRoute.coordinates && fastestRoute.coordinates.length > 1) {
+        const polyline = L.polyline(fastestRoute.coordinates, {
+            color: NAV_CONFIG.routeTypes.fastest.color,
+            weight: 4,
+            opacity: 0.7,
+            lineCap: 'round'
         }).addTo(map);
         
-        routeLayers.fastest.bindPopup(`
-            <div style="text-align: center;">
-                <strong>🚀 Fastest Route</strong><br>
-                ${(fastestRoute.ports || []).join(' → ')}<br>
-                Distance: ${safeNumberFormat(fastestRoute.distance_km)} km<br>
-                Time: ${safeNumberFormat((fastestRoute.time_hours || 0) / 24, 1)} days<br>
-                Fuel: ${safeNumberFormat(fastestRoute.fuel_tonnes, 1)} tonnes
+        // Add dashed version for better visibility
+        const dashedLine = L.polyline(fastestRoute.coordinates, {
+            color: NAV_CONFIG.routeTypes.fastest.color,
+            weight: 2,
+            opacity: 0.3,
+            dashArray: '15, 10',
+            lineCap: 'round'
+        }).addTo(map);
+        
+        routeLayers.fastest = L.layerGroup([polyline, dashedLine]);
+        
+        // Add popup with route info
+        polyline.bindPopup(`
+            <div style="text-align: center; padding: 5px;">
+                <h4 style="color: ${NAV_CONFIG.routeTypes.fastest.color}; margin: 0 0 10px 0;">🚀 Fastest Route</h4>
+                <p style="margin: 5px 0;"><strong>Distance:</strong> ${safeNumberFormat(fastestRoute.distance_km)} km</p>
+                <p style="margin: 5px 0;"><strong>Time:</strong> ${safeNumberFormat(fastestRoute.time_hours / 24, 1)} days</p>
+                <p style="margin: 5px 0;"><strong>Fuel:</strong> ${safeNumberFormat(fastestRoute.fuel_tonnes, 1)} tonnes</p>
+                ${fastestPorts.length > 2 ? 
+                    `<p style="margin: 5px 0;"><strong>Intermediate Ports:</strong> ${fastestPorts.slice(1, -1).join(', ')}</p>` : 
+                    '<p style="margin: 5px 0; color: #888;"><em>Direct Route</em></p>'
+                }
             </div>
         `);
     }
     
-    // Add fuel-efficient route (green)
-    if (fuelRoute.coordinates && fuelRoute.coordinates.length > 0) {
-        routeLayers.fuel = L.polyline(fuelRoute.coordinates, {
-            color: '#2ecc71',
-            weight: 5,
-            opacity: 0.8,
-            smoothFactor: 1
+    if (fuelRoute.coordinates && fuelRoute.coordinates.length > 1) {
+        const polyline = L.polyline(fuelRoute.coordinates, {
+            color: NAV_CONFIG.routeTypes.efficient.color,
+            weight: 4,
+            opacity: 0.7,
+            lineCap: 'round'
         }).addTo(map);
         
-        routeLayers.fuel.bindPopup(`
-            <div style="text-align: center;">
-                <strong>🌿 Fuel-Efficient Route</strong><br>
-                ${(fuelRoute.ports || []).join(' → ')}<br>
-                Distance: ${safeNumberFormat(fuelRoute.distance_km)} km<br>
-                Time: ${safeNumberFormat((fuelRoute.time_hours || 0) / 24, 1)} days<br>
-                Fuel: ${safeNumberFormat(fuelRoute.fuel_tonnes, 1)} tonnes
+        // Add dashed version for better visibility
+        const dashedLine = L.polyline(fuelRoute.coordinates, {
+            color: NAV_CONFIG.routeTypes.efficient.color,
+            weight: 2,
+            opacity: 0.3,
+            dashArray: '10, 15',
+            lineCap: 'round'
+        }).addTo(map);
+        
+        routeLayers.fuel = L.layerGroup([polyline, dashedLine]);
+        
+        // Add popup with route info
+        polyline.bindPopup(`
+            <div style="text-align: center; padding: 5px;">
+                <h4 style="color: ${NAV_CONFIG.routeTypes.efficient.color}; margin: 0 0 10px 0;">🌿 Fuel-Efficient Route</h4>
+                <p style="margin: 5px 0;"><strong>Distance:</strong> ${safeNumberFormat(fuelRoute.distance_km)} km</p>
+                <p style="margin: 5px 0;"><strong>Time:</strong> ${safeNumberFormat(fuelRoute.time_hours / 24, 1)} days</p>
+                <p style="margin: 5px 0;"><strong>Fuel:</strong> ${safeNumberFormat(fuelRoute.fuel_tonnes, 1)} tonnes</p>
+                ${fuelPorts.length > 2 ? 
+                    `<p style="margin: 5px 0;"><strong>Intermediate Ports:</strong> ${fuelPorts.slice(1, -1).join(', ')}</p>` : 
+                    '<p style="margin: 5px 0; color: #888;"><em>Direct Route</em></p>'
+                }
             </div>
         `);
     }
     
-    // Add direct route (blue, dashed)
-    if (directRoute.coordinates && directRoute.coordinates.length > 0) {
-        routeLayers.direct = L.polyline(directRoute.coordinates, {
-            color: '#3498db',
-            weight: 3,
-            opacity: 0.6,
-            dashArray: '10, 10',
-            smoothFactor: 1
+    // Add direct route if available
+    if (directRoute.coordinates && directRoute.coordinates.length > 1) {
+        const polyline = L.polyline(directRoute.coordinates, {
+            color: NAV_CONFIG.routeTypes.direct.color,
+            weight: 2,
+            opacity: 0.4,
+            dashArray: '5, 10',
+            lineCap: 'round'
         }).addTo(map);
         
-        const startPort = fastestRoute.ports ? fastestRoute.ports[0] : 'Start';
-        const endPort = fastestRoute.ports ? fastestRoute.ports[fastestRoute.ports.length - 1] : 'End';
+        routeLayers.direct = polyline;
         
-        routeLayers.direct.bindPopup(`
-            <div style="text-align: center;">
-                <strong>📏 Direct Great Circle Route</strong><br>
-                ${startPort} → ${endPort}<br>
-                Distance: ${safeNumberFormat(directRoute.distance_km)} km
+        polyline.bindPopup(`
+            <div style="text-align: center; padding: 5px;">
+                <h4 style="color: ${NAV_CONFIG.routeTypes.direct.color}; margin: 0 0 10px 0;">📐 Direct Route</h4>
+                <p style="margin: 5px 0; color: #888;"><em>Great circle route (for reference)</em></p>
+                <p style="margin: 5px 0;"><strong>Direct distance:</strong> ${safeNumberFormat(
+                    calculateDirectDistance(
+                        data.port_locations[fastestPorts[0]], 
+                        data.port_locations[fastestPorts[fastestPorts.length - 1]]
+                    )
+                )} km</p>
             </div>
         `);
     }
     
     // Add port markers
     if (data.port_locations) {
-        const fastestPorts = fastestRoute.ports || [];
-        const fuelPorts = fuelRoute.ports || [];
         addPortMarkers(data.port_locations, fastestPorts, fuelPorts);
     }
     
-    // Fit map to show all routes with padding
+    // Zoom to show all routes
     zoomToRoutes();
+    
+    // Update legend
+    updateLegend(fastestPorts, fuelPorts);
+}
+
+// ADD THIS HELPER FUNCTION to calculate direct distance:
+function calculateDirectDistance(coord1, coord2) {
+    if (!coord1 || !coord2) return 0;
+    
+    const R = 6371; // Earth's radius in km
+    const lat1 = coord1[0] * Math.PI / 180;
+    const lon1 = coord1[1] * Math.PI / 180;
+    const lat2 = coord2[0] * Math.PI / 180;
+    const lon2 = coord2[1] * Math.PI / 180;
+    
+    const dlat = lat2 - lat1;
+    const dlon = lon2 - lon1;
+    
+    const a = Math.sin(dlat/2) * Math.sin(dlat/2) +
+              Math.cos(lat1) * Math.cos(lat2) *
+              Math.sin(dlon/2) * Math.sin(dlon/2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+// ADD THIS FUNCTION to update the legend:
+function updateLegend(fastestPorts, fuelPorts) {
+    const legendContent = document.querySelector('.legend-content');
+    if (!legendContent) return;
+    
+    // Get selected hubs
+    const hubPortsSelect = document.getElementById('hubPorts');
+    const selectedHubs = Array.from(hubPortsSelect.selectedOptions).map(opt => opt.value).filter(port => port !== "");
+    
+    // Create legend HTML
+    legendContent.innerHTML = `
+        <div class="legend-item">
+            <div class="color-swatch" style="background-color: #27ae60;"></div>
+            <span>Start Port</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-swatch" style="background-color: #e74c3c;"></div>
+            <span>Destination Port</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-swatch" style="background-color: ${NAV_CONFIG.routeTypes.fastest.color};"></div>
+            <span>Fastest Route</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-swatch" style="background-color: ${NAV_CONFIG.routeTypes.efficient.color};"></div>
+            <span>Fuel-Efficient Route</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-swatch" style="background-color: ${NAV_CONFIG.routeTypes.direct.color}; opacity: 0.4;"></div>
+            <span>Direct Route (reference)</span>
+        </div>
+        ${selectedHubs.length > 0 ? `
+        <div class="legend-item">
+            <div class="color-swatch" style="background-color: #9b59b6;"></div>
+            <span>Intermediate Ports</span>
+        </div>
+        ` : ''}
+    `;
 }
 
 function addPortMarkers(portLocations, fastestPorts, fuelPorts) {
@@ -1526,3 +2016,4 @@ window.navShowNotifications = navShowNotifications;
 window.navOpenSettings = navOpenSettings;
 window.navLogout = navLogout;
 window.backToPlanner = backToPlanner;
+

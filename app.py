@@ -160,10 +160,12 @@ def calculate_routes():
     destination_port = data.get('destination_port')
     hub_ports = data.get('hub_ports', [])
     goal = data.get('goal', 'both')
+    include_weather = data.get('include_weather', True)  # New parameter
     
     try:
-        results = route_optimizer.calculate_optimal_routes(start_port, destination_port, hub_ports, goal)
-        
+        results = route_optimizer.calculate_optimal_routes(
+            start_port, destination_port, hub_ports, goal, include_weather
+        )
         calculation_time = time.time() - start_time
         
         # Log to real-time analytics - FIXED: Use the class method
