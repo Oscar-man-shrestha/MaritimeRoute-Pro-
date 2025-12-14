@@ -56,7 +56,7 @@ let currentMapData = null;
 // Initialize the application - UPDATED VERSION
 document.addEventListener("DOMContentLoaded", function () {
   console.log("📱 Initializing application with fresh state...");
-  
+
   // Clear any existing data first
   currentMapData = null;
   routeLayers = {
@@ -65,29 +65,32 @@ document.addEventListener("DOMContentLoaded", function () {
     direct: null,
   };
   portMarkers = [];
-  
+
   // Initialize map
   initializeMap();
   setupEventListeners();
-  
+
   // Show legend but ensure no routes are shown
   document.getElementById("mapLegend").style.display = "block";
-  
+
   // Reset statistics to defaults
   resetStatistics();
-  
+
   // Clear any routes that might still be on the map
   setTimeout(() => {
     refreshMapWithNewData();
     map.setView([20, 0], 2);
   }, 100);
+  setTimeout(() => {
+    updateDashboardHeightBasedOnComparison();
+  }, 100);
 });
 function resetAllData() {
   console.log("🔄 Resetting all application data...");
-  
+
   // Clear current data
   currentMapData = null;
-  
+
   // Clear route layers
   Object.keys(routeLayers).forEach((routeType) => {
     if (routeLayers[routeType]) {
@@ -100,7 +103,7 @@ function resetAllData() {
       routeLayers[routeType] = null;
     }
   });
-  
+
   // Clear markers
   portMarkers.forEach((marker) => {
     if (marker && marker.remove && map) {
@@ -108,7 +111,7 @@ function resetAllData() {
     }
   });
   portMarkers = [];
-  
+
   // Clear weather markers
   if (window.weatherMarkers) {
     window.weatherMarkers.forEach((marker) => {
@@ -118,69 +121,70 @@ function resetAllData() {
     });
     window.weatherMarkers = [];
   }
-  
+
   // Reset form
   document.getElementById("startPort").value = "";
   document.getElementById("destinationPort").value = "";
-  
+
   const hubPortsSelect = document.getElementById("hubPorts");
   if (hubPortsSelect) {
     Array.from(hubPortsSelect.options).forEach((option) => {
       option.selected = false;
     });
   }
-  
+
   // Reset radio buttons
   document.querySelectorAll('input[name="goal"]').forEach((radio) => {
     radio.checked = radio.value === "both";
   });
-  
+
   document.querySelectorAll('input[name="weather"]').forEach((radio) => {
     radio.checked = radio.value === "true";
   });
-  
+
   // Update selected ports display
   updateSelectedPortsDisplay();
-  
+
   // Hide results panel
   const resultsPanel = document.getElementById("resultsPanel");
   if (resultsPanel) {
     resultsPanel.style.display = "none";
   }
-  
+
   // Clear comparison content
   const comparisonDiv = document.querySelector(".route-comparison");
   if (comparisonDiv) {
-    comparisonDiv.innerHTML = 
+    comparisonDiv.innerHTML =
       '<p class="text-muted">Select ports and calculate routes to see results...</p>';
   }
-  
+
   // Reset statistics
   resetStatistics();
-  
+  resetDashboardHeight();
+
   // Reset map view
   if (map) {
     map.setView([20, 0], 2);
   }
-  
+
   console.log("✅ All data reset successfully");
 }
 function initializeMap() {
   console.log("🗺️ Initializing fresh map...");
-  
+
   // First, clear the map container if it already exists
   const mapContainer = document.getElementById("map");
   if (mapContainer && mapContainer._leaflet_id) {
     mapContainer._leaflet_id = null;
   }
-  
+
   // Initialize map centered on world
   map = L.map("map", {
     zoomControl: true,
     attributionControl: true,
-    preferCanvas: true
+    preferCanvas: true,
   }).setView([20, 0], 2);
-  
+
   // Clear any existing layers first
   map.eachLayer((layer) => {
     if (layer instanceof L.TileLayer) {
@@ -189,20 +193,20 @@ function initializeMap() {
     }
     map.removeLayer(layer);
   });
-  
+
   // Add base layers
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "© OpenStreetMap contributors",
     maxZoom: 18,
   }).addTo(map);
-  
+
   // Add OpenSeaMap layer
   L.tileLayer("https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png", {
     attribution: "© OpenSeaMap contributors",
     maxZoom: 18,
     opacity: 0.7,
   }).addTo(map);
-  
+
   // Add initial instruction popup after a short delay
   setTimeout(() => {
     const instructionPopup = L.popup()
@@ -218,7 +222,7 @@ function initializeMap() {
       )
       .openOn(map);
   }, 500);
-  
+
   console.log("✅ Map initialized with fresh state");
 }
 
@@ -230,7 +234,6 @@ function showRouteSuggestions() {
     console.log(`Route: ${startPort} → ${destinationPort}`);
   }
 }
-
 function updateSelectedPortsDisplay() {
   const hubPortsSelect = document.getElementById("hubPorts");
   const selectedPortsContainer = document.getElementById("selectedPorts");
@@ -240,8 +243,6 @@ function updateSelectedPortsDisplay() {
   const selectedPorts = selectedOptions
     .map((opt) => opt.value)
     .filter((port) => port !== "");
-
-  console.log("Selected intermediate ports:", selectedPorts);
 
   if (selectedPorts.length > 0) {
     selectedPortsContainer.style.display = "block";
@@ -256,11 +257,66 @@ function updateSelectedPortsDisplay() {
             `;
       selectedPortsList.appendChild(portTag);
     });
+
+    // ✅ FIXED: Dashboard height UNCHANGED when selecting ports
+    // Only visual display changes, no height adjustment
   } else {
     selectedPortsContainer.style.display = "none";
+    // Dashboard height unchanged
   }
 }
+function adjustDashboardHeightForSelectedPorts(selectedPorts) {
+  const dashboard = document.querySelector(".metrics-dashboard");
+  const resultsPanel = document.getElementById("resultsPanel");
 
+  if (!dashboard) return;
+
+  // Base height without any ports
+  let baseHeight = 850; // px
+
+  // Each port tag adds height
+  const portTagHeight = 32; // approximate height of each port tag in px
+  const portTagMargin = 8; // margin between tags
+
+  // Calculate additional height needed for the selected ports container
+  let additionalHeight = 0;
+
+  if (selectedPorts.length > 0) {
+    // Height for selected ports section
+    const portsContainerHeight = 80; // Base height for the container
+
+    // Height for the port tags themselves (arranged in rows)
+    const tagsPerRow = 3; // Approximate tags per row
+    const rows = Math.ceil(selectedPorts.length / tagsPerRow);
+    const tagsHeight = rows * (portTagHeight + portTagMargin);
+
+    additionalHeight = portsContainerHeight + tagsHeight;
+  }
+
+  // Add margin to ensure no overlap
+  const safetyMargin = 40; // extra pixels to prevent overlap
+
+  // Set the new height
+  const newHeight = baseHeight + additionalHeight + safetyMargin;
+
+  dashboard.style.minHeight = `${newHeight}px`;
+  dashboard.style.height = `${newHeight}px`;
+
+  console.log("Dashboard height adjusted:", {
+    baseHeight,
+    additionalHeight,
+    safetyMargin,
+    newHeight,
+    selectedPortsCount: selectedPorts.length,
+  });
+}
+function resetDashboardHeight() {
+  const dashboard = document.querySelector(".metrics-dashboard");
+  if (dashboard) {
+    dashboard.style.minHeight = "850px";
+    dashboard.style.height = "850px";
+  }
+}
 function removePortFromSelection(port) {
   const hubPortsSelect = document.getElementById("hubPorts");
   const option = Array.from(hubPortsSelect.options).find(
@@ -272,127 +328,131 @@ function removePortFromSelection(port) {
     updateSelectedPortsDisplay();
   }
 }
-
 function clearSelectedPorts() {
   const hubPortsSelect = document.getElementById("hubPorts");
   Array.from(hubPortsSelect.options).forEach((option) => {
     option.selected = false;
   });
   updateSelectedPortsDisplay();
+
+  // Reset dashboard height when ports are cleared
+  const dashboard = document.querySelector(".metrics-dashboard");
+  if (dashboard) {
+    dashboard.style.minHeight = "850px";
+    dashboard.style.height = "850px";
+  }
 }
-
-
 async function calculateRoutes() {
-    const startPort = document.getElementById('startPort').value;
-    const destinationPort = document.getElementById('destinationPort').value;
-    const hubPortsSelect = document.getElementById('hubPorts');
-    const hubPorts = Array.from(hubPortsSelect.selectedOptions).map(opt => opt.value).filter(port => port !== "");
-    const goal = document.querySelector('input[name="goal"]:checked').value;
-    const includeWeather = document.querySelector('input[name="weather"]:checked').value === 'true';
-    
-    // Validate inputs
-    if (!startPort || !destinationPort) {
-        alert('Please select both start and destination ports');
-        return;
+  const startPort = document.getElementById("startPort").value;
+  const destinationPort = document.getElementById("destinationPort").value;
+  const hubPortsSelect = document.getElementById("hubPorts");
+  const hubPorts = Array.from(hubPortsSelect.selectedOptions)
+    .map((opt) => opt.value)
+    .filter((port) => port !== "");
+  const goal = document.querySelector('input[name="goal"]:checked').value;
+  const includeWeather =
+    document.querySelector('input[name="weather"]:checked').value === "true";
+
+  // Validate inputs
+  if (!startPort || !destinationPort) {
+    alert("Please select both start and destination ports");
+    return;
+  }
+
+  if (startPort === destinationPort) {
+    alert("Start and destination ports cannot be the same");
+    return;
+  }
+
+  // 1. Clear the map BEFORE showing loading
+  console.log("🗺️ Clearing map for fresh calculation...");
+  refreshMapWithNewData();
+
+  // 2. Show loading
+  document.getElementById("loadingOverlay").style.display = "flex";
+  document.getElementById("calculateBtn").disabled = true;
+
+  // 3. Reset results panel
+  const resultsPanel = document.getElementById("resultsPanel");
+  if (resultsPanel) {
+    resultsPanel.style.display = "none";
+  }
+
+  const comparisonDiv = document.querySelector(".route-comparison");
+  if (comparisonDiv) {
+    comparisonDiv.innerHTML =
+      '<p class="text-muted">Calculating routes... Please wait.</p>';
+  }
+
+  // 5. Reset statistics
+  resetStatistics();
+
+  try {
+    const response = await fetch("/calculate-routes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        start_port: startPort,
+        destination_port: destinationPort,
+        hub_ports: hubPorts,
+        goal: goal,
+        include_weather: includeWeather,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Server error ${response.status}: ${errorText}`);
     }
-    
-    if (startPort === destinationPort) {
-        alert('Start and destination ports cannot be the same');
-        return;
+
+    const data = await response.json();
+
+    // Validate response structure
+    if (!data || typeof data !== "object") {
+      throw new Error("Invalid response format from server");
     }
-    
-    // 1. Clear the map BEFORE showing loading
-    console.log('🗺️ Clearing map for fresh calculation...');
-    refreshMapWithNewData();
-    
-    // 2. Show loading
-    document.getElementById('loadingOverlay').style.display = 'flex';
-    document.getElementById('calculateBtn').disabled = true;
-    
-    // 3. Reset results panel
-    const resultsPanel = document.getElementById("resultsPanel");
-    if (resultsPanel) {
-        resultsPanel.style.display = "none";
+
+    // Check if we have valid route data
+    if (!data || (!data.fastest_route && !data.fuel_efficient_route)) {
+      alert(
+        "No routes could be calculated with the current parameters. Please try different ports."
+      );
+      return;
     }
-    
-    const comparisonDiv = document.querySelector(".route-comparison");
-    if (comparisonDiv) {
-        comparisonDiv.innerHTML = 
-            '<p class="text-muted">Calculating routes... Please wait.</p>';
+
+    // Display results
+    currentMapData = data;
+    displayResults(data);
+    displayRoutesOnMap(data);
+    updateRouteStatistics(data); // This calls updateRouteComparison
+
+    // ✅ CRITICAL: Wait for route comparison to be generated, THEN update height
+    setTimeout(() => {
+      updateDashboardHeightBasedOnComparison();
+    }, 300); // Small delay to ensure DOM is updated
+
+    if (data.algorithm_performance) {
+      updateAlgorithmPerformance(data.algorithm_performance);
     }
-    
-    // 4. Reset statistics
-    resetStatistics();
-    
-    try {
-        const response = await fetch('/calculate-routes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                start_port: startPort,
-                destination_port: destinationPort,
-                hub_ports: hubPorts,
-                goal: goal,
-                include_weather: includeWeather
-            })
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Server error ${response.status}: ${errorText}`);
-        }
-        
-        const data = await response.json();
-        
-        // Validate response structure
-        if (!data || typeof data !== 'object') {
-            throw new Error('Invalid response format from server');
-        }
-        
-        // Check if we have valid route data
-        if (!data || (!data.fastest_route && !data.fuel_efficient_route)) {
-            alert('No routes could be calculated with the current parameters. Please try different ports.');
-            return;
-        }
-        
-        // Display results
-        currentMapData = data;
-        displayResults(data);
-        displayRoutesOnMap(data);
-        updateRouteStatistics(data);
-        
-        if (data.algorithm_performance) {
-            updateAlgorithmPerformance(data.algorithm_performance);
-        }
-        
-    } catch (error) {
-        console.error('❌ Error calculating routes:', error);
-        alert('Error calculating routes: ' + error.message);
-    } finally {
-        document.getElementById('loadingOverlay').style.display = 'none';
-        document.getElementById('calculateBtn').disabled = false;
-    }
+  } catch (error) {
+    console.error("❌ Error calculating routes:", error);
+    alert("Error calculating routes: " + error.message);
+  } finally {
+    document.getElementById("loadingOverlay").style.display = "none";
+    document.getElementById("calculateBtn").disabled = false;
+  }
 }
 // Add this to handle page refresh/load
-window.addEventListener('beforeunload', function() {
+window.addEventListener("beforeunload", function () {
   // Clear any cached data
-  localStorage.removeItem('lastRouteData');
+  localStorage.removeItem("lastRouteData");
   sessionStorage.clear();
 });
 
 // Also call reset when the page loads
-window.addEventListener('load', function() {
+window.addEventListener("load", function () {
   setTimeout(resetAllData, 50);
 });
-// Helper function to safely update elements
-function updateElement(id, value) {
-  const element = document.getElementById(id);
-  if (element) {
-    element.textContent = value;
-  } else {
-    console.warn(`Element #${id} not found`);
-  }
-}
 
 function updateElementWithClass(id, value, className) {
   const element = document.getElementById(id);
@@ -401,101 +461,26 @@ function updateElementWithClass(id, value, className) {
     element.className = "comparison-value " + className;
   }
 }
-
 // Reset statistics to default state
 function resetStatistics() {
-    updateElement('avgTransitTime', '--');
-    updateElement('fuelEfficiency', '--');
-    updateElement('distanceSaved', '--');
-    updateElement('costSavings', '--');
-    updateElement('statsLastUpdated', '--');
-    updateElement('timeDifference', '--');
-    updateElement('fuelDifference', '--');
-    updateElement('recommendedRoute', '--');
-    
-    const comparisonSection = document.getElementById('routeComparison');
-    if (comparisonSection) {
-        comparisonSection.style.display = 'none';
-    }
-}
+  updateElement("avgTransitTime", "--");
+  updateElement("fuelEfficiency", "--");
+  updateElement("distanceSaved", "--");
+  updateElement("costSavings", "--");
+  updateElement("statsLastUpdated", "--");
 
-// Update route comparison section
-function updateRouteComparison(fastestRoute, fuelRoute) {
-  const timeDiff = (fuelRoute.time_hours || 0) - (fastestRoute.time_hours || 0);
-  const fuelDiff =
-    (fastestRoute.fuel_tonnes || 0) - (fuelRoute.fuel_tonnes || 0);
-  const co2Diff = (fastestRoute.co2_tonnes || 0) - (fuelRoute.co2_tonnes || 0);
+  // Reset comparison values to "--"
+  updateElement("timeDifference", "--");
+  updateElement("fuelDifference", "--");
+  updateElement("recommendedRoute", "--");
 
+  // Hide comparison section
   const comparisonSection = document.getElementById("routeComparison");
-
-  if (timeDiff !== 0 || fuelDiff !== 0) {
-    if (comparisonSection) {
-      comparisonSection.style.display = "block";
-    }
-
-    // Time difference
-    if (timeDiff > 0) {
-      updateElementWithClass(
-        "timeDifference",
-        `+${(timeDiff / 24).toFixed(1)} days`,
-        "negative"
-      );
-    } else if (timeDiff < 0) {
-      updateElementWithClass(
-        "timeDifference",
-        `${(timeDiff / 24).toFixed(1)} days`,
-        "positive"
-      );
-    } else {
-      updateElementWithClass("timeDifference", "No difference", "neutral");
-    }
-
-    // Fuel difference
-    if (fuelDiff > 0) {
-      updateElementWithClass(
-        "fuelDifference",
-        `-${fuelDiff.toFixed(1)} tonnes`,
-        "positive"
-      );
-    } else if (fuelDiff < 0) {
-      updateElementWithClass(
-        "fuelDifference",
-        `+${Math.abs(fuelDiff).toFixed(1)} tonnes`,
-        "negative"
-      );
-    } else {
-      updateElementWithClass("fuelDifference", "No difference", "neutral");
-    }
-
-    // Recommended route
-    if (fuelDiff > 5 && timeDiff < 24) {
-      updateElementWithClass(
-        "recommendedRoute",
-        "Efficient Route 🌿",
-        "positive"
-      );
-    } else if (timeDiff > 24 && fuelDiff < 5) {
-      updateElementWithClass(
-        "recommendedRoute",
-        "Fastest Route 🚀",
-        "positive"
-      );
-    } else {
-      updateElementWithClass(
-        "recommendedRoute",
-        "Balanced Route ⚖️",
-        "neutral"
-      );
-    }
-  } else {
-    if (comparisonSection) {
-      comparisonSection.style.display = "none";
-    }
-    updateElementWithClass("timeDifference", "No difference", "neutral");
-    updateElementWithClass("fuelDifference", "No difference", "neutral");
-    updateElementWithClass("recommendedRoute", "Routes are equal", "neutral");
+  if (comparisonSection) {
+    comparisonSection.style.display = "none";
   }
 }
+
 function updateRouteStatistics(data) {
   if (!data) return;
 
@@ -505,38 +490,46 @@ function updateRouteStatistics(data) {
   console.log("📊 Updating route statistics with data:", data);
 
   // Calculate average transit time
-  const avgTime = ((fastestRoute.time_hours || 0) + (fuelRoute.time_hours || 0)) / 2;
-  document.getElementById("avgTransitTime").textContent = 
+  const avgTime =
+    ((fastestRoute.time_hours || 0) + (fuelRoute.time_hours || 0)) / 2;
+  document.getElementById("avgTransitTime").textContent =
     avgTime > 0 ? `${(avgTime / 24).toFixed(1)} days` : "--";
 
   // Calculate fuel efficiency (lower is better)
-  const fuelEfficiency = ((fuelRoute.fuel_tonnes || 0) / (fuelRoute.distance_km || 1)) * 100;
-  document.getElementById("fuelEfficiency").textContent = 
+  const fuelEfficiency =
+    ((fuelRoute.fuel_tonnes || 0) / (fuelRoute.distance_km || 1)) * 100;
+  document.getElementById("fuelEfficiency").textContent =
     fuelEfficiency > 0 ? `${fuelEfficiency.toFixed(2)} t/100km` : "--";
 
   // ✅ FIXED: Calculate distance saved - FASTEST vs FUEL-EFFICIENT
-  const distanceSaved = (fastestRoute.distance_km || 0) - (fuelRoute.distance_km || 0);
+  const distanceSaved =
+    (fastestRoute.distance_km || 0) - (fuelRoute.distance_km || 0);
   if (distanceSaved > 0) {
-    document.getElementById("distanceSaved").textContent = 
-      `${distanceSaved.toFixed(0)} km saved`;
+    document.getElementById(
+      "distanceSaved"
+    ).textContent = `${distanceSaved.toFixed(0)} km saved`;
   } else if (distanceSaved < 0) {
-    document.getElementById("distanceSaved").textContent = 
-      `${Math.abs(distanceSaved).toFixed(0)} km added`;
+    document.getElementById("distanceSaved").textContent = `${Math.abs(
+      distanceSaved
+    ).toFixed(0)} km added`;
   } else {
     document.getElementById("distanceSaved").textContent = "No difference";
   }
 
   // Calculate cost savings (estimated)
   const fuelPricePerTonne = 600; // USD per tonne
-  const costSavings = 
-    ((fastestRoute.fuel_tonnes || 0) - (fuelRoute.fuel_tonnes || 0)) * fuelPricePerTonne;
-  
+  const costSavings =
+    ((fastestRoute.fuel_tonnes || 0) - (fuelRoute.fuel_tonnes || 0)) *
+    fuelPricePerTonne;
+
   if (costSavings > 0) {
-    document.getElementById("costSavings").textContent = 
-      `$${costSavings.toFixed(0)} saved`;
+    document.getElementById(
+      "costSavings"
+    ).textContent = `$${costSavings.toFixed(0)} saved`;
   } else if (costSavings < 0) {
-    document.getElementById("costSavings").textContent = 
-      `-$${Math.abs(costSavings).toFixed(0)}`;
+    document.getElementById("costSavings").textContent = `-$${Math.abs(
+      costSavings
+    ).toFixed(0)}`;
   } else {
     document.getElementById("costSavings").textContent = "--";
   }
@@ -545,8 +538,9 @@ function updateRouteStatistics(data) {
   updateRouteComparison(fastestRoute, fuelRoute);
 
   // Update timestamp
-  document.getElementById("statsLastUpdated").textContent = 
-    `Updated: ${new Date().toLocaleTimeString()}`;
+  document.getElementById(
+    "statsLastUpdated"
+  ).textContent = `Updated: ${new Date().toLocaleTimeString()}`;
 }
 function safeNumberFormat(value, decimals = 2) {
   if (value === undefined || value === null || isNaN(value)) {
@@ -727,6 +721,14 @@ function displayResults(data) {
     .map((opt) => opt.value)
     .filter((port) => port !== "");
 
+  // NEW: Add class to main content based on whether intermediate ports were used
+  const mainContent = document.querySelector(".main-content");
+  if (selectedHubs.length > 0) {
+    mainContent.classList.add("routes-calculated", "has-intermediate-ports");
+  } else {
+    mainContent.classList.remove("has-intermediate-ports");
+    mainContent.classList.add("routes-calculated");
+  }
   // Define hasHubs before using it
   const hasHubs = fastestPorts.length > 2 || fuelPorts.length > 2;
   const routesAreDifferent =
@@ -1091,8 +1093,100 @@ function displayResults(data) {
   ) {
     addWeatherMarkers(data);
   }
+  if (
+    data.fastest_route?.weather_impact?.weather_points ||
+    data.fuel_efficient_route?.weather_impact?.weather_points
+  ) {
+    addWeatherMarkers(data);
+  }
+}
+function updateFooterStats() {
+    // Update live calculations
+    const routesCalculated = document.getElementById('footerRoutesCalculated');
+    if (routesCalculated) {
+        routesCalculated.textContent = '1,247';
+    }
+    
+    // Update fuel saved
+    const fuelSaved = document.getElementById('footerFuelSaved');
+    if (fuelSaved) {
+        fuelSaved.textContent = '45.2t';
+    }
+    
+    // Update live calculations counter
+    const liveCalcs = document.getElementById('liveCalculations');
+    if (liveCalcs) {
+        const current = parseInt(liveCalcs.textContent) || 18;
+        liveCalcs.textContent = (current + Math.floor(Math.random() * 3)).toString();
+    }
+    
+    // Update active users
+    const activeUsers = document.getElementById('activeUsers');
+    if (activeUsers) {
+        const base = 42;
+        activeUsers.textContent = (base + Math.floor(Math.random() * 5)).toString();
+    }
+    
+    // Update last updated time
+    const lastUpdated = document.getElementById('footerLastUpdated');
+    if (lastUpdated) {
+        const now = new Date();
+        const minutesAgo = Math.floor(Math.random() * 5);
+        lastUpdated.textContent = `${minutesAgo} min ago`;
+    }
+    
+    // Update response time
+    const responseTime = document.getElementById('responseTime');
+    if (responseTime) {
+        responseTime.textContent = `${35 + Math.floor(Math.random() * 25)}ms`;
+    }
 }
 
+// Update footer stats every 30 seconds
+setInterval(updateFooterStats, 30000);
+
+// Initial update
+document.addEventListener('DOMContentLoaded', updateFooterStats);
+// Add this function to update footer statistics
+function updateFooterStatistics() {
+    // Update route calculations count
+    const routesCount = document.getElementById('footerRoutesCalculated');
+    if (routesCount) {
+        const current = parseInt(routesCount.textContent) || 1247;
+        // Simulate occasional updates
+        if (Math.random() > 0.7) {
+            routesCount.textContent = (current + 1).toString();
+        }
+    }
+    
+    // Update fuel saved (simulated)
+    const fuelSaved = document.getElementById('footerFuelSaved');
+    if (fuelSaved && Math.random() > 0.8) {
+        const current = parseFloat(fuelSaved.textContent) || 45.2;
+        fuelSaved.textContent = (current + 0.1).toFixed(1) + 't';
+    }
+    
+    // Update live statistics
+    const liveCalculations = document.getElementById('liveCalculations');
+    if (liveCalculations) {
+        const base = 18;
+        liveCalculations.textContent = (base + Math.floor(Math.random() * 5)).toString();
+    }
+    
+    // Update response time
+    const responseTime = document.getElementById('responseTime');
+    if (responseTime) {
+        responseTime.textContent = `${40 + Math.floor(Math.random() * 20)}ms`;
+    }
+}
+
+// Update footer stats periodically
+setInterval(updateFooterStatistics, 10000);
+
+// Initial update
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(updateFooterStatistics, 1000);
+});
 // ========== ENHANCED WEATHER HELPER FUNCTIONS ==========
 
 function getWeatherClass(impactScore) {
@@ -2160,7 +2254,7 @@ function addWeatherMarkers(data) {
 
 function displayRoutesOnMap(data) {
   console.log("🗺️ Displaying routes on map...");
-  
+
   // ========== CRITICAL FIX: Clear ALL existing layers FIRST ==========
   if (window.currentRouteLayers) {
     window.currentRouteLayers.forEach((layer) => {
@@ -2170,7 +2264,7 @@ function displayRoutesOnMap(data) {
     });
     window.currentRouteLayers = [];
   }
-  
+
   // Also clear the existing routeLayers object
   Object.keys(routeLayers).forEach((key) => {
     if (routeLayers[key]) {
@@ -2376,21 +2470,21 @@ function displayRoutesOnMap(data) {
 
 function calculateDirectDistance(coord1, coord2) {
   if (!coord1 || !coord2) return 0;
-  
+
   const R = 6371; // Earth's radius in km
   const lat1 = (coord1[0] * Math.PI) / 180;
   const lon1 = (coord1[1] * Math.PI) / 180;
   const lat2 = (coord2[0] * Math.PI) / 180;
   const lon2 = (coord2[1] * Math.PI) / 180;
-  
+
   const dlat = lat2 - lat1;
   const dlon = lon2 - lon1;
-  
-  const a = Math.sin(dlat/2) * Math.sin(dlat/2) +
-            Math.cos(lat1) * Math.cos(lat2) *
-            Math.sin(dlon/2) * Math.sin(dlon/2);
-  
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  const a =
+    Math.sin(dlat / 2) * Math.sin(dlat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dlon / 2) * Math.sin(dlon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
@@ -2956,113 +3050,74 @@ function updateAlgorithmPerformance(algorithmData) {
 function validatePortSelection() {
   const startPort = document.getElementById("startPort").value;
   const destinationPort = document.getElementById("destinationPort").value;
-  
+
   if (!startPort || !destinationPort) {
-    return { valid: false, message: "Please select both start and destination ports" };
+    return {
+      valid: false,
+      message: "Please select both start and destination ports",
+    };
   }
-  
+
   if (startPort === destinationPort) {
-    return { valid: false, message: "Start and destination ports cannot be the same" };
+    return {
+      valid: false,
+      message: "Start and destination ports cannot be the same",
+    };
   }
-  
+
   // Check if ports exist in your database
-  const validPorts = ["Tokyo", "Singapore", "Shanghai", "Rotterdam", "New York"]; // Example
-  if (!validPorts.includes(startPort) || !validPorts.includes(destinationPort)) {
+  const validPorts = [
+    "Tokyo",
+    "Singapore",
+    "Shanghai",
+    "Rotterdam",
+    "New York",
+  ]; // Example
+  if (
+    !validPorts.includes(startPort) ||
+    !validPorts.includes(destinationPort)
+  ) {
     return { valid: false, message: "One or more selected ports are invalid" };
   }
-  
+
   return { valid: true };
 }
-function resetEverything() {
-  console.log("🧹 Resetting everything...");
-  
-  // 1. Clear the map
-  refreshMapWithNewData();
-  
-  // 2. Reset form inputs
-  document.getElementById("startPort").value = "";
-  document.getElementById("destinationPort").value = "";
-  
-  const hubPortsSelect = document.getElementById("hubPorts");
-  if (hubPortsSelect) {
-    Array.from(hubPortsSelect.options).forEach((option) => {
-      option.selected = false;
-    });
-  }
-  
-  // 3. Reset radio buttons to defaults
-  document.querySelectorAll('input[name="goal"]').forEach((radio) => {
-    radio.checked = radio.value === "both";
-  });
-  
-  document.querySelectorAll('input[name="weather"]').forEach((radio) => {
-    radio.checked = radio.value === "true";
-  });
-  
-  // 4. Update UI
-  updateSelectedPortsDisplay();
-  
-  // 5. Hide results panel
-  const resultsPanel = document.getElementById("resultsPanel");
-  if (resultsPanel) {
-    resultsPanel.style.display = "none";
-  }
-  
-  // 6. Clear comparison content
-  const comparisonDiv = document.querySelector(".route-comparison");
-  if (comparisonDiv) {
-    comparisonDiv.innerHTML = 
-      '<p class="text-muted">Select ports and calculate routes to see results...</p>';
-  }
-  
-  // 7. Reset statistics
-  resetStatistics();
-  
-  // 8. Reset map view
-  if (map) {
-    setTimeout(() => {
-      map.setView([20, 0], 2);
-      map.invalidateSize();
-    }, 50);
-  }
-  
-  console.log("✅ Everything reset successfully");
-}
+
 function refreshMapWithNewData() {
   console.log("🗺️ [PROFESSIONAL] Refreshing map for new calculation...");
-  
+
   if (!map) {
     console.warn("⚠️ Map not initialized yet");
     return;
   }
-  
+
   // 1. Remove all non-base layers
   map.eachLayer((layer) => {
     if (!(layer instanceof L.TileLayer)) {
       map.removeLayer(layer);
     }
   });
-  
+
   // 2. Reset tracking variables
   routeLayers = {
     fastest: null,
     fuel: null,
     direct: null,
   };
-  
+
   portMarkers = [];
-  
+
   if (window.weatherMarkers) {
     window.weatherMarkers = [];
   }
-  
+
   if (window.currentRouteLayers) {
     window.currentRouteLayers = [];
   }
-  
+
   // 3. Reset current data
   currentMapData = null;
-  
+
   console.log("✅ Map cleared - ready for new routes");
 }
 function clearForm() {
@@ -3082,21 +3137,21 @@ function setupEventListeners() {
 
   // NO map refresh on form changes! Only UI updates
   if (startPort) {
-    startPort.addEventListener("change", function() {
+    startPort.addEventListener("change", function () {
       console.log("Start port changed");
       showRouteSuggestions();
     });
   }
 
   if (destinationPort) {
-    destinationPort.addEventListener("change", function() {
+    destinationPort.addEventListener("change", function () {
       console.log("Destination port changed");
       showRouteSuggestions();
     });
   }
 
   if (hubPorts) {
-    hubPorts.addEventListener("change", function() {
+    hubPorts.addEventListener("change", function () {
       console.log("Hub ports changed");
       updateSelectedPortsDisplay(); // Only update UI, NO map refresh
     });
@@ -3104,23 +3159,24 @@ function setupEventListeners() {
 
   // No automatic refreshes for radio buttons
   document.querySelectorAll('input[name="goal"]').forEach((radio) => {
-    radio.addEventListener("change", function() {
+    radio.addEventListener("change", function () {
       console.log("Optimization goal changed to:", this.value);
       // Nothing - wait for calculate
     });
   });
 
   document.querySelectorAll('input[name="weather"]').forEach((radio) => {
-    radio.addEventListener("change", function() {
+    radio.addEventListener("change", function () {
       console.log("Weather option changed to:", this.value);
       // Nothing - wait for calculate
     });
   });
 
   // Add event listener for intermediate ports selection
-  document.getElementById("hubPorts").addEventListener("change", updateSelectedPortsDisplay);
+  document
+    .getElementById("hubPorts")
+    .addEventListener("change", updateSelectedPortsDisplay);
 }
-
 
 function renderPerformanceBars(metrics) {
   if (!metrics) {
@@ -3385,6 +3441,7 @@ setInterval(() => {
     loadAnalyticsDashboard();
   }
 }, 10000);
+
 // Real-time statistics functions
 function updateRouteStatistics(data) {
   if (!data) return;
@@ -3395,38 +3452,46 @@ function updateRouteStatistics(data) {
   console.log("📊 Updating route statistics with data:", data);
 
   // Calculate average transit time
-  const avgTime = ((fastestRoute.time_hours || 0) + (fuelRoute.time_hours || 0)) / 2;
-  document.getElementById("avgTransitTime").textContent = 
+  const avgTime =
+    ((fastestRoute.time_hours || 0) + (fuelRoute.time_hours || 0)) / 2;
+  document.getElementById("avgTransitTime").textContent =
     avgTime > 0 ? `${(avgTime / 24).toFixed(1)} days` : "--";
 
   // Calculate fuel efficiency (lower is better)
-  const fuelEfficiency = ((fuelRoute.fuel_tonnes || 0) / (fuelRoute.distance_km || 1)) * 100;
-  document.getElementById("fuelEfficiency").textContent = 
+  const fuelEfficiency =
+    ((fuelRoute.fuel_tonnes || 0) / (fuelRoute.distance_km || 1)) * 100;
+  document.getElementById("fuelEfficiency").textContent =
     fuelEfficiency > 0 ? `${fuelEfficiency.toFixed(2)} t/100km` : "--";
 
   // ✅ FIXED: Calculate distance saved - FASTEST vs FUEL-EFFICIENT
-  const distanceSaved = (fastestRoute.distance_km || 0) - (fuelRoute.distance_km || 0);
+  const distanceSaved =
+    (fastestRoute.distance_km || 0) - (fuelRoute.distance_km || 0);
   if (distanceSaved > 0) {
-    document.getElementById("distanceSaved").textContent = 
-      `${distanceSaved.toFixed(0)} km saved`;
+    document.getElementById(
+      "distanceSaved"
+    ).textContent = `${distanceSaved.toFixed(0)} km saved`;
   } else if (distanceSaved < 0) {
-    document.getElementById("distanceSaved").textContent = 
-      `${Math.abs(distanceSaved).toFixed(0)} km added`;
+    document.getElementById("distanceSaved").textContent = `${Math.abs(
+      distanceSaved
+    ).toFixed(0)} km added`;
   } else {
     document.getElementById("distanceSaved").textContent = "No difference";
   }
 
   // Calculate cost savings (estimated)
   const fuelPricePerTonne = 600; // USD per tonne
-  const costSavings = 
-    ((fastestRoute.fuel_tonnes || 0) - (fuelRoute.fuel_tonnes || 0)) * fuelPricePerTonne;
-  
+  const costSavings =
+    ((fastestRoute.fuel_tonnes || 0) - (fuelRoute.fuel_tonnes || 0)) *
+    fuelPricePerTonne;
+
   if (costSavings > 0) {
-    document.getElementById("costSavings").textContent = 
-      `$${costSavings.toFixed(0)} saved`;
+    document.getElementById(
+      "costSavings"
+    ).textContent = `$${costSavings.toFixed(0)} saved`;
   } else if (costSavings < 0) {
-    document.getElementById("costSavings").textContent = 
-      `-$${Math.abs(costSavings).toFixed(0)}`;
+    document.getElementById("costSavings").textContent = `-$${Math.abs(
+      costSavings
+    ).toFixed(0)}`;
   } else {
     document.getElementById("costSavings").textContent = "--";
   }
@@ -3435,116 +3500,39 @@ function updateRouteStatistics(data) {
   updateRouteComparison(fastestRoute, fuelRoute);
 
   // Update timestamp
-  document.getElementById("statsLastUpdated").textContent = 
-    `Updated: ${new Date().toLocaleTimeString()}`;
-}
-
-// Update route comparison section
-function updateRouteComparison(fastestRoute, fuelRoute) {
-  const timeDiff = (fuelRoute.time_hours || 0) - (fastestRoute.time_hours || 0);
-  const fuelDiff =
-    (fastestRoute.fuel_tonnes || 0) - (fuelRoute.fuel_tonnes || 0);
-  const co2Diff = (fastestRoute.co2_tonnes || 0) - (fuelRoute.co2_tonnes || 0);
-
-  const comparisonSection = document.getElementById("routeComparison");
-
-  if (timeDiff !== 0 || fuelDiff !== 0) {
-    if (comparisonSection) {
-      comparisonSection.style.display = "block";
-    }
-
-    // Time difference
-    if (timeDiff > 0) {
-      updateElementWithClass(
-        "timeDifference",
-        `+${(timeDiff / 24).toFixed(1)} days`,
-        "negative"
-      );
-    } else if (timeDiff < 0) {
-      updateElementWithClass(
-        "timeDifference",
-        `${(timeDiff / 24).toFixed(1)} days`,
-        "positive"
-      );
-    } else {
-      updateElementWithClass("timeDifference", "No difference", "neutral");
-    }
-
-    // Fuel difference
-    if (fuelDiff > 0) {
-      updateElementWithClass(
-        "fuelDifference",
-        `-${fuelDiff.toFixed(1)} tonnes`,
-        "positive"
-      );
-    } else if (fuelDiff < 0) {
-      updateElementWithClass(
-        "fuelDifference",
-        `+${Math.abs(fuelDiff).toFixed(1)} tonnes`,
-        "negative"
-      );
-    } else {
-      updateElementWithClass("fuelDifference", "No difference", "neutral");
-    }
-
-    // Recommended route
-    if (fuelDiff > 5 && timeDiff < 24) {
-      updateElementWithClass(
-        "recommendedRoute",
-        "Efficient Route 🌿",
-        "positive"
-      );
-    } else if (timeDiff > 24 && fuelDiff < 5) {
-      updateElementWithClass(
-        "recommendedRoute",
-        "Fastest Route 🚀",
-        "positive"
-      );
-    } else {
-      updateElementWithClass(
-        "recommendedRoute",
-        "Balanced Route ⚖️",
-        "neutral"
-      );
-    }
-  } else {
-    if (comparisonSection) {
-      comparisonSection.style.display = "none";
-    }
-    updateElementWithClass("timeDifference", "No difference", "neutral");
-    updateElementWithClass("fuelDifference", "No difference", "neutral");
-    updateElementWithClass("recommendedRoute", "Routes are equal", "neutral");
-  }
+  document.getElementById(
+    "statsLastUpdated"
+  ).textContent = `Updated: ${new Date().toLocaleTimeString()}`;
 }
 
 function clearAllData() {
   console.log("🧹 Clearing all data...");
-  
+
   // Reset form
   document.getElementById("startPort").value = "";
   document.getElementById("destinationPort").value = "";
-  
+
   const hubPortsSelect = document.getElementById("hubPorts");
   if (hubPortsSelect) {
     Array.from(hubPortsSelect.options).forEach((option) => {
       option.selected = false;
     });
   }
-  
+
   // Reset radio buttons
   document.querySelectorAll('input[name="goal"]').forEach((radio) => {
     radio.checked = radio.value === "both";
   });
-  
+
   // Update selected ports display
   updateSelectedPortsDisplay();
-  
+
   // Now clear the map
   refreshMapWithNewData();
-  
+
   // Also reset currentMapData to ensure everything is cleared
   currentMapData = null;
-  
+
   console.log("✅ All data cleared");
 }
 // Quick actions functions
@@ -3650,6 +3638,360 @@ function fixLegendPosition() {
     legend.style.zIndex = "1000";
   }
 }
+function toggleStatsInfo() {
+  const infoContent = document.getElementById("statsInfoContent");
+  const toggleBtn = document.querySelector(".info-toggle");
+
+  if (
+    infoContent.style.display === "none" ||
+    infoContent.style.display === ""
+  ) {
+    infoContent.style.display = "block";
+    toggleBtn.textContent = "−";
+    toggleBtn.title = "Hide statistics info";
+  } else {
+    infoContent.style.display = "none";
+    toggleBtn.textContent = "ℹ️";
+    toggleBtn.title = "Show statistics info";
+  }
+}
+function updateDashboardHeightBasedOnComparison() {
+  const dashboard = document.querySelector(".metrics-dashboard");
+  const routeComparison = document.getElementById("routeComparison");
+
+  if (!dashboard) return;
+
+  // Check if route comparison section is visible AND has actual data
+  const isComparisonVisible =
+    routeComparison && routeComparison.style.display === "block";
+
+  // Get the actual comparison values
+  const timeDiffElement = document.getElementById("timeDifference");
+  const fuelDiffElement = document.getElementById("fuelDifference");
+
+  let hasActualComparisonData = false;
+
+  if (isComparisonVisible && timeDiffElement && fuelDiffElement) {
+    const timeText = timeDiffElement.textContent || "";
+    const fuelText = fuelDiffElement.textContent || "";
+
+    // ✅ Check if values are ACTUAL comparison data (not "--" or placeholders)
+    // Actual data would be like: "-1.3 days", "-377.5 tonnes", "+2.4 days", etc.
+    hasActualComparisonData =
+      timeText !== "--" &&
+      timeText !== "" &&
+      timeText !== "No difference" &&
+      !timeText.includes("Select ports") &&
+      fuelText !== "--" &&
+      fuelText !== "" &&
+      fuelText !== "No difference" &&
+      !fuelText.includes("Select ports");
+  }
+
+  console.log("🔍 Route Comparison Height Check:", {
+    isComparisonVisible,
+    hasActualComparisonData,
+    timeValue: timeDiffElement ? timeDiffElement.textContent : "none",
+    fuelValue: fuelDiffElement ? fuelDiffElement.textContent : "none",
+  });
+
+  // ✅ ONLY change height if BOTH are true
+  if (isComparisonVisible && hasActualComparisonData) {
+    // Route Comparison IS GENERATED with actual values - Increase height to 900px
+    dashboard.style.minHeight = "900px";
+    dashboard.style.height = "900px";
+    console.log(
+      "📈 Dashboard height INCREASED to 900px (Route Comparison HAS REAL DATA)"
+    );
+  } else {
+    // DEFAULT or NO comparison - Keep height at 850px
+    dashboard.style.minHeight = "850px";
+    dashboard.style.height = "850px";
+    console.log(
+      "📏 Dashboard height RESET to 850px (No Route Comparison or only placeholders)"
+    );
+  }
+}
+function resetEverything() {
+  console.log("🧹 Resetting everything...");
+
+  // Clear the map
+  refreshMapWithNewData();
+
+  // Reset form inputs
+  document.getElementById("startPort").value = "";
+  document.getElementById("destinationPort").value = "";
+
+  const hubPortsSelect = document.getElementById("hubPorts");
+  if (hubPortsSelect) {
+    Array.from(hubPortsSelect.options).forEach((option) => {
+      option.selected = false;
+    });
+  }
+
+  // Reset radio buttons
+  document.querySelectorAll('input[name="goal"]').forEach((radio) => {
+    radio.checked = radio.value === "both";
+  });
+
+  document.querySelectorAll('input[name="weather"]').forEach((radio) => {
+    radio.checked = radio.value === "true";
+  });
+
+  // Update UI
+  updateSelectedPortsDisplay();
+
+  // Hide results panel
+  const resultsPanel = document.getElementById("resultsPanel");
+  if (resultsPanel) {
+    resultsPanel.style.display = "none";
+  }
+
+  // Reset route comparison
+  const routeComparison = document.getElementById("routeComparison");
+  if (routeComparison) {
+    routeComparison.style.display = "none";
+    // Set values back to "--"
+    document.getElementById("timeDifference").textContent = "--";
+    document.getElementById("fuelDifference").textContent = "--";
+    document.getElementById("recommendedRoute").textContent = "--";
+  }
+
+  // Reset dashboard height to default
+  updateDashboardHeightBasedOnComparison();
+
+  // Reset map view
+  if (map) {
+    setTimeout(() => {
+      map.setView([20, 0], 2);
+      map.invalidateSize();
+    }, 50);
+  }
+
+  console.log("✅ Everything reset successfully");
+}
+
+// Call this whenever the page loads
+document.addEventListener("DOMContentLoaded", function () {
+  // Initialize dashboard height
+  updateDashboardHeightBasedOnComparison();
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  // Set initial dashboard height
+  setTimeout(() => {
+    updateDashboardHeightBasedOnComparison();
+  }, 100);
+});
+
+function updateRouteComparison(fastestRoute, fuelRoute) {
+  console.log("🔄 Checking if route comparison should be generated...");
+
+  const timeDiff = (fuelRoute.time_hours || 0) - (fastestRoute.time_hours || 0);
+  const fuelDiff =
+    (fastestRoute.fuel_tonnes || 0) - (fuelRoute.fuel_tonnes || 0);
+
+  const comparisonSection = document.getElementById("routeComparison");
+
+  if (comparisonSection) {
+    // CRITICAL: Only generate comparison if there are SIGNIFICANT differences
+    const shouldGenerateComparison =
+      Math.abs(timeDiff) > 2 || Math.abs(fuelDiff) > 0.5;
+
+    if (shouldGenerateComparison) {
+      // 1. Show the comparison section
+      comparisonSection.style.display = "block";
+
+      // 2. Set REAL comparison values
+      if (timeDiff > 0) {
+        document.getElementById("timeDifference").textContent = `+${(
+          timeDiff / 24
+        ).toFixed(1)} days`;
+        document.getElementById("timeDifference").className =
+          "comparison-value negative";
+      } else if (timeDiff < 0) {
+        document.getElementById("timeDifference").textContent = `${(
+          timeDiff / 24
+        ).toFixed(1)} days`;
+        document.getElementById("timeDifference").className =
+          "comparison-value positive";
+      } else {
+        document.getElementById("timeDifference").textContent = "No difference";
+        document.getElementById("timeDifference").className =
+          "comparison-value neutral";
+      }
+
+      if (fuelDiff > 0) {
+        document.getElementById(
+          "fuelDifference"
+        ).textContent = `-${fuelDiff.toFixed(1)} tonnes`;
+        document.getElementById("fuelDifference").className =
+          "comparison-value positive";
+      } else if (fuelDiff < 0) {
+        document.getElementById("fuelDifference").textContent = `+${Math.abs(
+          fuelDiff
+        ).toFixed(1)} tonnes`;
+        document.getElementById("fuelDifference").className =
+          "comparison-value negative";
+      } else {
+        document.getElementById("fuelDifference").textContent = "No difference";
+        document.getElementById("fuelDifference").className =
+          "comparison-value neutral";
+      }
+
+      if (fuelDiff > 5 && timeDiff < 24) {
+        document.getElementById("recommendedRoute").textContent =
+          "Efficient Route 🌿";
+      } else if (timeDiff > 24 && fuelDiff < 5) {
+        document.getElementById("recommendedRoute").textContent =
+          "Fastest Route 🚀";
+      } else {
+        document.getElementById("recommendedRoute").textContent =
+          "Balanced Route ⚖️";
+      }
+
+      document.getElementById("recommendedRoute").className =
+        "comparison-value positive";
+
+      console.log("🔄 Route Comparison GENERATED:", {
+        timeDiff,
+        fuelDiff,
+        shouldGenerateComparison,
+      });
+
+      // 3. ONLY update dashboard height AFTER comparison is generated
+      setTimeout(() => {
+        updateDashboardHeightBasedOnComparison();
+      }, 100);
+    } else {
+      // HIDE the comparison if no significant differences
+      comparisonSection.style.display = "none";
+
+      // Reset values to "--" (placeholders)
+      document.getElementById("timeDifference").textContent = "--";
+      document.getElementById("fuelDifference").textContent = "--";
+      document.getElementById("recommendedRoute").textContent = "--";
+
+      console.log(
+        "🚫 Route Comparison NOT generated (insignificant differences):",
+        {
+          timeDiff,
+          fuelDiff,
+          shouldGenerateComparison,
+        }
+      );
+
+      // Reset dashboard height
+      updateDashboardHeightBasedOnComparison();
+    }
+  }
+}
+// Call this whenever the state changes
+function setupDynamicHeight() {
+  // Monitor port selection changes
+  document.getElementById("hubPorts").addEventListener("change", function () {
+    setTimeout(updateDashboardHeight, 100);
+  });
+
+  // Monitor radio button changes
+  document.querySelectorAll('input[name="goal"]').forEach((radio) => {
+    radio.addEventListener("change", updateDashboardHeight);
+  });
+
+  // Monitor calculation
+  document
+    .getElementById("calculateBtn")
+    .addEventListener("click", function () {
+      setTimeout(updateDashboardHeight, 500); // After results are shown
+    });
+
+  // Monitor clear button
+  const clearBtn = document.querySelector(
+    '.btn-secondary[onclick="resetEverything()"]'
+  );
+  if (clearBtn) {
+    clearBtn.addEventListener("click", function () {
+      setTimeout(updateDashboardHeight, 100);
+    });
+  }
+}
+
+// Initialize on page load
+document.addEventListener("DOMContentLoaded", function () {
+  setupDynamicHeight();
+  // Set initial height
+});
+// Call this function whenever something changes
+function setupHeightManagement() {
+  // Monitor form changes
+  document
+    .getElementById("hubPorts")
+    .addEventListener("change", updateDashboardHeight);
+  document.querySelectorAll('input[name="weather"]').forEach((radio) => {
+    radio.addEventListener("change", updateDashboardHeight);
+  });
+
+  // Monitor calculate button
+  document
+    .getElementById("calculateBtn")
+    .addEventListener("click", function () {
+      setTimeout(updateDashboardHeight, 100);
+    });
+
+  // Monitor loading state
+  const observer = new MutationObserver(function (mutations) {
+    mutations.forEach(function (mutation) {
+      if (mutation.attributeName === "style") {
+      }
+    });
+  });
+
+  const loadingOverlay = document.getElementById("loadingOverlay");
+  if (loadingOverlay) {
+    observer.observe(loadingOverlay, { attributes: true });
+  }
+}
+
+// Initialize on page load
+document.addEventListener("DOMContentLoaded", function () {
+  setupHeightManagement();
+});
+
+// Call this function whenever something changes
+function setupHeightManagement() {
+  // Monitor form changes
+  document
+    .getElementById("hubPorts")
+    .addEventListener("change", updateDashboardHeight);
+  document.querySelectorAll('input[name="weather"]').forEach((radio) => {
+    radio.addEventListener("change", updateDashboardHeight);
+  });
+
+  // Monitor calculate button
+  document
+    .getElementById("calculateBtn")
+    .addEventListener("click", function () {
+      setTimeout(updateDashboardHeight, 100);
+    });
+
+  // Monitor loading state
+  const observer = new MutationObserver(function (mutations) {
+    mutations.forEach(function (mutation) {
+      if (mutation.attributeName === "style") {
+      }
+    });
+  });
+
+  const loadingOverlay = document.getElementById("loadingOverlay");
+  if (loadingOverlay) {
+    observer.observe(loadingOverlay, { attributes: true });
+  }
+}
+
+// Initialize on page load
+document.addEventListener("DOMContentLoaded", function () {
+  setupHeightManagement();
+});
 // Add this function to display algorithm statistics
 function displayAlgorithmStats(data) {
   const algorithmStats = document.getElementById("algorithmStats");

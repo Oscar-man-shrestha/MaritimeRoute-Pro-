@@ -138,6 +138,7 @@
         <div class="main-content">
             <!-- Left Sidebar - Controls -->
             <div class="sidebar">
+                
                 <!-- Control Panel -->
                 <div class="control-panel">
                     <div class="panel-header">
@@ -504,5 +505,205 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+            <!-- Footer -->
+        <footer class="app-footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="footer-logo">
+                        <span class="footer-logo-icon">⛴️</span>
+                        <div class="footer-logo-text">
+                            <h3>MaritimeRoute Pro</h3>
+                            <span class="footer-version">v2.4.1</span>
+                        </div>
+                    </div>
+                    <p class="footer-tagline"> Maritime Route Optimization Platform</p>
+                    <div class="footer-stats-row">
+                        <div class="footer-stat">
+                            <span class="footer-stat-value" id="footerRoutesCalculated">1,247</span>
+                            <span class="footer-stat-label">Routes</span>
+                        </div>
+                        <div class="footer-stat">
+                            <span class="footer-stat-value" id="footerFuelSaved">45.2t</span>
+                            <span class="footer-stat-label">Fuel Saved</span>
+                        </div>
+                        <div class="footer-stat">
+                            <span class="footer-stat-value" id="footerUptime">99.7%</span>
+                            <span class="footer-stat-label">Uptime</span>
+                        </div>
+                    </div>
+                    <div class="footer-social">
+                        <a href="https://github.com" class="social-link" target="_blank" title="GitHub Repository">
+                            <span class="social-icon">💻</span>
+                            <span class="social-text">Code</span>
+                        </a>
+                        <a href="https://linkedin.com" class="social-link" target="_blank" title="LinkedIn">
+                            <span class="social-icon">👔</span>
+                            <span class="social-text">Network</span>
+                        </a>
+                        <a href="https://twitter.com" class="social-link" target="_blank" title="Twitter">
+                            <span class="social-icon">🐦</span>
+                            <span class="social-text">Updates</span>
+                        </a>
+                        <a href="mailto:contact@maritimeroute.pro" class="social-link" title="Contact Us">
+                            <span class="social-icon">✉️</span>
+                            <span class="social-text">Contact</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="footer-section">
+                    <h4 class="footer-heading">Navigation</h4>
+                    <ul class="footer-links">
+                        <li><a href="#" onclick="navLoadSection('planner')" class="footer-link">
+                            <span class="footer-link-icon">🗺️</span>
+                            Route Planner
+                        </a></li>
+                        <li><a href="#" onclick="navLoadSection('analytics')" class="footer-link">
+                            <span class="footer-link-icon">📊</span>
+                            Analytics Dashboard
+                        </a></li>
+                        <li><a href="#" onclick="navLoadSection('ports')" class="footer-link">
+                            <span class="footer-link-icon">⚓</span>
+                            Port Database
+                        </a></li>
+                        <li><a href="#" onclick="navLoadSection('fleet')" class="footer-link">
+                            <span class="footer-link-icon">🚢</span>
+                            Fleet Management
+                        </a></li>
+                        <li><a href="#" onclick="navLoadSection('weather')" class="footer-link">
+                            <span class="footer-link-icon">🌤️</span>
+                            Weather Intelligence
+                        </a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4 class="footer-heading">Resources</h4>
+                    <ul class="footer-links">
+                        <li><a href="#" onclick="navLoadSection('help')" class="footer-link">
+                            <span class="footer-link-icon">📚</span>
+                            Documentation
+                        </a></li>
+                        <li><a href="https://api.maritimeroute.pro/docs" target="_blank" class="footer-link">
+                            <span class="footer-link-icon">🔌</span>
+                            API Reference
+                        </a></li>
+                        <li><a href="#" onclick="navOpenSettings()" class="footer-link">
+                            <span class="footer-link-icon">🌐</span>
+                            Data Sources
+                        </a></li>
+                        <li><a href="#" onclick="navLoadSection('help')" class="footer-link">
+                            <span class="footer-link-icon">🎓</span>
+                            Tutorials
+                        </a></li>
+                        <li><a href="#" onclick="navLoadSection('help')" class="footer-link">
+                            <span class="footer-link-icon">❓</span>
+                            Support Center
+                        </a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4 class="footer-heading">Company</h4>
+                    <ul class="footer-links">
+                        <li><a href="#" onclick="navLoadSection('profile')" class="footer-link">
+                            <span class="footer-link-icon">🏢</span>
+                            About Us
+                        </a></li>
+                        <li><a href="#" onclick="navLoadSection('reports')" class="footer-link">
+                            <span class="footer-link-icon">📈</span>
+                            Case Studies
+                        </a></li>
+                        <li><a href="#" onclick="navLoadSection('help')" class="footer-link">
+                            <span class="footer-link-icon">🔒</span>
+                            Privacy Policy
+                        </a></li>
+                        <li><a href="#" onclick="navLoadSection('help')" class="footer-link">
+                            <span class="footer-link-icon">📄</span>
+                            Terms of Service
+                        </a></li>
+                        <li><a href="#" onclick="navLoadSection('help')" class="footer-link">
+                            <span class="footer-link-icon">🤝</span>
+                            Partnership
+                        </a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4 class="footer-heading">Technology Stack</h4>
+                    <div class="tech-stack">
+                        <div class="tech-stack-category">
+                            <span class="tech-category-label">Algorithms</span>
+                            <div class="tech-stack-row">
+                                <span class="tech-badge">A* Search</span>
+                                <span class="tech-badge">Genetic Algorithms</span>
+                                <span class="tech-badge">HYBRID</span>
+                            </div>
+                        </div>
+                        <div class="tech-stack-category">
+                            <span class="tech-category-label">Data Sources</span>
+                            <div class="tech-stack-row">
+                                <span class="tech-badge">OpenSeaMap</span>
+                                
+                            </div>
+                        </div>
+                        <div class="tech-stack-category">
+                            <span class="tech-category-label">Infrastructure</span>
+                            <div class="tech-stack-row">
+                                <span class="tech-badge">Flask</span>
+                                <span class="tech-badge">Leaflet.js</span>
+                                <span class="tech-badge">WebSocket</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="real-time-stats">
+                        <div class="real-time-stat">
+                            <span class="real-time-label">Live Calculations:</span>
+                            <span class="real-time-value" id="liveCalculations">18</span>
+                        </div>
+                        <div class="real-time-stat">
+                            <span class="real-time-label">Active Users:</span>
+                            <span class="real-time-value" id="activeUsers">42</span>
+                        </div>
+                        <div class="real-time-stat">
+                            <span class="real-time-label">System Status:</span>
+                            <span class="status-indicator online">●</span>
+                            <span class="real-time-value">Operational</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <div class="footer-copyright">
+                    <span>© 2024 MaritimeRoute Pro. All rights reserved.</span>
+                    <div class="footer-legal-links">
+                        <a href="#">Privacy Policy</a>
+                        <span class="separator">•</span>
+                        <a href="#">Terms of Service</a>
+                        <span class="separator">•</span>
+                        <a href="#">Cookie Policy</a>
+                        <span class="separator">•</span>
+                        <a href="#">GDPR</a>
+                    </div>
+                </div>
+                
+                <div class="footer-technical-info">
+                    <div class="technical-detail">
+                        <span class="tech-icon">🌐</span>
+                        <span class="tech-text">API Version: 2.1.0</span>
+                    </div>
+                    <div class="technical-detail">
+                        <span class="tech-icon">🔄</span>
+                        <span class="tech-text">Last Updated: <span id="footerLastUpdated">Just now</span></span>
+                    </div>
+                    <div class="technical-detail">
+                        <span class="tech-icon">⚡</span>
+                        <span class="tech-text">Response Time: <span id="responseTime">47ms</span></span>
+                    </div>
+                </div>
+            </div>
+        </footer>
 </body>
 </html>
