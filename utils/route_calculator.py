@@ -41,7 +41,7 @@ class ShippingRouteOptimizer:
         
         self.AVERAGE_SPEED_KMH = 37.0
         self.FUEL_CONSUMPTION_PER_KM = 0.04
-        self.WEATHER_FACTOR = 1.25
+        self.WEATHER_FACTOR = 1
         self.GA_POPULATION_SIZE = 40
         self.GA_GENERATIONS = 100
         self.PORT_CONNECTION_THRESHOLD_KM = 500
@@ -599,3 +599,4 @@ class ShippingRouteOptimizer:
         
         print("✅ Route calculation complete!")
         return results
+

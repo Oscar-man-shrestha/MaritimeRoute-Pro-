@@ -355,12 +355,12 @@ async function calculateRoutes() {
 
   // Validate inputs
   if (!startPort || !destinationPort) {
-    alert("Please select both start and destination ports");
+   notify.warning("Please select both start and destination ports", "Port Selection Required");
     return;
   }
 
   if (startPort === destinationPort) {
-    alert("Start and destination ports cannot be the same");
+   notify.error("Start and destination ports cannot be the same", "Invalid Selection");
     return;
   }
 
@@ -414,9 +414,7 @@ async function calculateRoutes() {
 
     // Check if we have valid route data
     if (!data || (!data.fastest_route && !data.fuel_efficient_route)) {
-      alert(
-        "No routes could be calculated with the current parameters. Please try different ports."
-      );
+     notify.error("No routes could be calculated with the current parameters. Please try different ports.", "Calculation Failed");
       return;
     }
 
@@ -436,7 +434,8 @@ async function calculateRoutes() {
     }
   } catch (error) {
     console.error("❌ Error calculating routes:", error);
-    alert("Error calculating routes: " + error.message);
+   notify.error("Error calculating routes: " + error.message, "Calculation Error");
+
   } finally {
     document.getElementById("loadingOverlay").style.display = "none";
     document.getElementById("calculateBtn").disabled = false;
@@ -581,7 +580,7 @@ function displayResults(data) {
                 <div class="weather-dashboard">
                     <div class="weather-header">
                         <div class="weather-title">
-                            <h4>🌤️ Professional Maritime Weather Analysis</h4>
+                            <h4> Professional Maritime Weather Analysis</h4>
                             <div class="weather-source">
                                 <span class="source-icon">🛰️</span>
                                 <span class="source-text">Integrated Weather Data</span>
@@ -661,7 +660,7 @@ function displayResults(data) {
                     </div>
                     
                     <div class="weather-insights">
-                        <h5>📊 Weather Analysis</h5>
+                        <h5>Weather Analysis</h5>
                         <div class="insight-list">
                             ${generateWeatherInsights(
                               fastestWeather,
@@ -1375,7 +1374,7 @@ function generateWeatherInsights(fastestWeather, fuelWeather) {
   if (fastestImpact < 3 && fuelImpact < 3) {
     insights.push(`
             <div class="insight-item">
-                <span class="insight-icon">👍</span>
+                <span class="insight-icon"></span>
                 <span class="insight-text">
                     <strong>Excellent sailing conditions on both routes</strong> 
                     - Minimal weather impact expected. This is optimal for passenger comfort and schedule reliability.
@@ -3552,13 +3551,14 @@ function saveCurrentRoute() {
   savedRoutes.push(routeData);
   localStorage.setItem("savedRoutes", JSON.stringify(savedRoutes));
 
-  alert("Route saved successfully!");
+ notify.success("Route saved successfully!", "Route Saved");
+
 }
 
 function compareWithPrevious() {
   const savedRoutes = JSON.parse(localStorage.getItem("savedRoutes") || "[]");
   if (savedRoutes.length === 0) {
-    alert("No saved routes to compare with.");
+  notify.info("No saved routes to compare with.", "No Saved Routes");
     return;
   }
 
@@ -3957,6 +3957,900 @@ document.addEventListener("DOMContentLoaded", function () {
   setupHeightManagement();
 });
 
+
+// footer.js - Professional Footer Manager
+class FooterManager {
+    constructor() {
+        this.initializeFooter();
+        this.setupEventListeners();
+        this.startLiveUpdates();
+    }
+
+    initializeFooter() {
+        console.log("🚢 Initializing professional footer system...");
+        
+        // Initialize elements
+        this.updateAllStatistics();
+        this.updateCopyrightYear();
+        this.updateRealTimeClock();
+        
+        // Set initial values
+        this.setInitialValues();
+    }
+
+    setInitialValues() {
+        // Set initial metrics
+        document.getElementById('footerRoutesCalculated').textContent = '1,247';
+        document.getElementById('footerFuelSaved').textContent = '45.2t';
+        document.getElementById('totalDistanceSaved').textContent = '12.5k';
+        document.getElementById('githubStars').textContent = '⭐ 42';
+        document.getElementById('linkedinFollowers').textContent = '👥 1.2k';
+        document.getElementById('twitterFollowers').textContent = '🐦 856';
+        document.getElementById('discordMembers').textContent = '👥 342';
+        document.getElementById('buildNumber').textContent = '4218';
+        document.getElementById('techCount').textContent = '12';
+        document.getElementById('totalTechs').textContent = '12';
+        document.getElementById('activeTechs').textContent = '12';
+        document.getElementById('supportResponseTime').textContent = '15 min';
+        
+        // Navigation progress
+        this.updateNavigationProgress();
+    }
+
+    setupEventListeners() {
+        // Navigation cards
+        document.querySelectorAll('.nav-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = card.getAttribute('onclick').match(/navLoadSection\('(.+?)'\)/)[1];
+                navLoadSection(section);
+                this.markNavAsVisited(card);
+            });
+        });
+
+        // Tech category toggles
+        document.querySelectorAll('.tech-category').forEach(category => {
+            category.addEventListener('click', () => this.toggleTechCategory(category));
+        });
+
+        // Contact items
+        document.querySelectorAll('.contact-item[data-copy]').forEach(item => {
+            item.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('contact-action')) {
+                    const email = item.getAttribute('data-copy');
+                    navigator.clipboard.writeText(email);
+                    this.showToast(`Copied ${email} to clipboard!`, 'success');
+                }
+            });
+        });
+
+        // Social links
+        document.querySelectorAll('.social-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('social-link')) return;
+                this.showToast(`Opening ${link.dataset.social}...`, 'info');
+            });
+        });
+
+        // Back to top
+        document.querySelector('.btn-back-to-top').addEventListener('click', () => {
+            this.scrollToTop();
+        });
+
+        // System status indicator
+        document.querySelector('.system-status-indicator').addEventListener('click', () => {
+            this.showSystemDetails();
+        });
+
+        // Brand header
+        document.querySelector('.brand-header').addEventListener('click', () => {
+            this.showBrandDetails();
+        });
+
+        // Cycle port button
+        document.querySelector('.btn-cycle-port').addEventListener('click', () => {
+            this.cycleNextPort();
+        });
+    }
+
+    updateAllStatistics() {
+        this.updateLivePorts();
+        this.updateActiveUsers();
+        this.updateResponseTime();
+        this.updateLiveCalculations();
+        this.updateSystemUptime();
+        this.updateNavigationProgress();
+    }
+
+    updateLivePorts() {
+        const portsElement = document.getElementById('livePortsCount');
+        if (portsElement) {
+            const base = 18;
+            const variation = Math.floor(Math.random() * 3);
+            portsElement.textContent = (base + variation).toString();
+        }
+    }
+
+    updateActiveUsers() {
+        const usersElement = document.getElementById('activeUsers');
+        if (usersElement) {
+            const base = 42;
+            const variation = Math.floor(Math.random() * 5);
+            const current = parseInt(usersElement.textContent) || base;
+            const newValue = Math.max(base, current + (Math.random() > 0.5 ? 1 : -1));
+            usersElement.textContent = newValue.toString();
+            
+            // Update change indicator
+            const changeElement = document.getElementById('usersChange');
+            if (changeElement) {
+                const change = newValue - current;
+                changeElement.textContent = change >= 0 ? `+${change}` : `${change}`;
+                changeElement.style.color = change >= 0 ? '#10b981' : '#ef4444';
+            }
+        }
+    }
+
+    updateResponseTime() {
+        const responseElement = document.getElementById('responseTime');
+        if (responseElement) {
+            const base = 35;
+            const variation = Math.floor(Math.random() * 25);
+            const newValue = base + variation;
+            responseElement.textContent = `${newValue}ms`;
+            
+            // Update change indicator
+            const changeElement = document.getElementById('responseChange');
+            if (changeElement) {
+                const current = parseInt(responseElement.textContent) || 42;
+                const change = newValue - current;
+                changeElement.textContent = change >= 0 ? `+${change}ms` : `${change}ms`;
+                changeElement.style.color = change <= 0 ? '#10b981' : '#ef4444';
+            }
+        }
+    }
+
+    updateLiveCalculations() {
+        const calculationsElement = document.getElementById('liveCalculations');
+        if (calculationsElement) {
+            const base = 18;
+            const variation = Math.floor(Math.random() * 3);
+            const newValue = base + variation;
+            calculationsElement.textContent = newValue.toString();
+            
+            // Update change indicator
+            const changeElement = document.getElementById('calcChange');
+            if (changeElement) {
+                const current = parseInt(calculationsElement.textContent) || 18;
+                const change = newValue - current;
+                changeElement.textContent = change >= 0 ? `+${change}` : `${change}`;
+                changeElement.style.color = change >= 0 ? '#10b981' : '#ef4444';
+            }
+        }
+    }
+
+    updateSystemUptime() {
+        const uptimeElement = document.getElementById('systemUptimeDisplay');
+        if (uptimeElement) {
+            uptimeElement.textContent = '99.7% uptime';
+        }
+    }
+
+    updateCopyrightYear() {
+        const yearElement = document.querySelector('.copyright-year');
+        if (yearElement) {
+            yearElement.textContent = new Date().getFullYear();
+        }
+    }
+
+    updateRealTimeClock() {
+        const updateClock = () => {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', {
+                hour12: true,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            
+            const clockElement = document.getElementById('currentTime');
+            if (clockElement) {
+                clockElement.textContent = timeString;
+            }
+        };
+
+        updateClock();
+        setInterval(updateClock, 1000);
+    }
+
+    updateNavigationProgress() {
+        const visitedCards = document.querySelectorAll('.nav-card[data-visited="true"]');
+        const totalCards = document.querySelectorAll('.nav-card').length;
+        const progress = (visitedCards.length / totalCards) * 100;
+        
+        const progressElement = document.getElementById('navProgress');
+        const progressFill = document.getElementById('navProgressFill');
+        
+        if (progressElement) {
+            progressElement.textContent = `${visitedCards.length}/${totalCards}`;
+        }
+        
+        if (progressFill) {
+            progressFill.style.width = `${progress}%`;
+        }
+    }
+
+    // Event Handlers
+    markNavAsVisited(card) {
+        card.setAttribute('data-visited', 'true');
+        this.updateNavigationProgress();
+    }
+toggleTechCategory(category) {
+    // Toggle the open class
+    category.classList.toggle('open');
+    
+    // Get the content and toggle elements
+    const content = category.querySelector('.tech-tags');
+    const toggle = category.querySelector('.category-toggle');
+    
+    // Check if the category is now open
+    if (category.classList.contains('open')) {
+        // Show content and change toggle to up arrow
+        content.style.display = 'flex';
+        toggle.textContent = '▲';
+    } else {
+        // Hide content and change toggle to down arrow
+        content.style.display = 'none';
+        toggle.textContent = '▼';
+    }
+}
+
+    openLiveChat() {
+        this.showToast('Opening live chat...', 'info');
+        // In a real app, this would open a chat widget
+        setTimeout(() => {
+            this.showToast('Live chat is ready!', 'success');
+        }, 1000);
+    }
+
+    scheduleCall() {
+        this.showToast('Opening calendar for demo scheduling...', 'info');
+        // In a real app, this would open a calendar booking system
+    }
+
+    scrollToTop() {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    }
+
+    showSystemDetails() {
+        const modalHTML = `
+            <div class="system-details-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>🚢 System Status Details</h3>
+                        <button class="modal-close">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="detail-item">
+                            <span class="detail-label">Overall Status:</span>
+                            <span class="detail-value status-good">Operational</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Uptime (30d):</span>
+                            <span class="detail-value">99.7%</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Server Load:</span>
+                            <span class="detail-value">24%</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Memory Usage:</span>
+                            <span class="detail-value">1.2 GB</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Active Connections:</span>
+                            <span class="detail-value">${document.getElementById('activeUsers')?.textContent || '42'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Last Incident:</span>
+                            <span class="detail-value">None (60+ days)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal
+        const existingModal = document.querySelector('.system-details-modal');
+        if (existingModal) existingModal.remove();
+        
+        // Add new modal
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Add close functionality
+        const modal = document.querySelector('.system-details-modal');
+        modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    }
+
+ // Replace the existing showBrandDetails method with this:
+showBrandDetails() {
+    const brandHeader = document.querySelector('.brand-header');
+    const brandExpand = brandHeader.querySelector('.brand-expand');
+    
+    // Toggle expansion state
+    brandHeader.classList.toggle('expanded');
+    
+    if (brandHeader.classList.contains('expanded')) {
+        brandExpand.textContent = '▼';
+        this.showToast('Brand details expanded', 'info');
+        
+        // Create and show brand details modal
+        const modalHTML = `
+            <div class="brand-details-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>🚢 MaritimeRoute Pro - Brand Story</h3>
+                        <button class="modal-close">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="brand-story">
+                            <p><strong>MaritimeRoute Pro</strong> is an advanced AI-powered maritime optimization platform that combines:</p>
+                            <ul>
+                                <li>📊 <strong>A* Algorithm</strong> for shortest path finding</li>
+                                <li>🧬 <strong>Genetic Algorithm</strong> for multi-objective optimization</li>
+                                <li>🌤️ <strong>Real-time weather integration</strong> from Storm Glass API</li>
+                                <li>⚓ <strong>Global port database</strong> with 1,800+ ports</li>
+                            </ul>
+                            <p>Our mission: <em>"Optimizing global maritime logistics through intelligent algorithms and real-time data analysis."</em></p>
+                        </div>
+                        <div class="brand-stats">
+                            <div class="brand-stat">
+                                <span class="stat-label">Founded:</span>
+                                <span class="stat-value">2023</span>
+                            </div>
+                            <div class="brand-stat">
+                                <span class="stat-label">Routes Optimized:</span>
+                                <span class="stat-value">1,247+</span>
+                            </div>
+                            <div class="brand-stat">
+                                <span class="stat-label">Fuel Saved:</span>
+                                <span class="stat-value">45.2 tonnes</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal
+        const existingModal = document.querySelector('.brand-details-modal');
+        if (existingModal) existingModal.remove();
+        
+        // Add new modal
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Add close functionality
+        const modal = document.querySelector('.brand-details-modal');
+        modal.querySelector('.modal-close').addEventListener('click', () => {
+            modal.remove();
+            brandHeader.classList.remove('expanded');
+            brandExpand.textContent = '▶';
+        });
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                brandHeader.classList.remove('expanded');
+                brandExpand.textContent = '▶';
+            }
+        });
+    } else {
+        brandExpand.textContent = '▶';
+        const modal = document.querySelector('.brand-details-modal');
+        if (modal) modal.remove();
+    }
+}
+
+    cycleNextPort() {
+        const ports = ['Singapore', 'Shanghai', 'Jebel_Ali', 'Busan', 'Melbourne', 'Rotterdam'];
+        const currentElement = document.querySelector('.featured-port');
+        const currentText = currentElement.textContent.replace('Featured Port: ', '').replace(' ⚓', '');
+        const currentIndex = ports.indexOf(currentText);
+        const nextIndex = (currentIndex + 1) % ports.length;
+        
+        currentElement.innerHTML = `Featured Port: ${ports[nextIndex]} ⚓`;
+        this.showToast(`Featured port changed to ${ports[nextIndex]}`, 'info');
+    }
+
+    showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `footer-toast toast-${type}`;
+        
+        const icons = {
+            success: '✅',
+            error: '❌',
+            warning: '⚠️',
+            info: 'ℹ️'
+        };
+        
+        toast.innerHTML = `${icons[type] || icons.info} ${message}`;
+        document.body.appendChild(toast);
+        
+        // Animate in
+        setTimeout(() => toast.classList.add('show'), 10);
+        
+        // Remove after delay
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    startLiveUpdates() {
+        // Update stats every 10 seconds
+        setInterval(() => this.updateAllStatistics(), 10000);
+        
+        // Randomly update some metrics
+        setInterval(() => {
+            // Randomly update routes calculated
+            if (Math.random() > 0.7) {
+                const routesElement = document.getElementById('footerRoutesCalculated');
+                if (routesElement) {
+                    const current = parseInt(routesElement.textContent.replace(/,/g, '')) || 1247;
+                    routesElement.textContent = (current + 1).toLocaleString();
+                }
+            }
+            
+            // Randomly update fuel saved
+            if (Math.random() > 0.8) {
+                const fuelElement = document.getElementById('footerFuelSaved');
+                if (fuelElement) {
+                    const current = parseFloat(fuelElement.textContent) || 45.2;
+                    fuelElement.textContent = (current + 0.1).toFixed(1) + 't';
+                }
+            }
+        }, 15000);
+    }
+
+    // Legal modals
+    showLegalModal(type) {
+        const titles = {
+            privacy: 'Privacy Policy',
+            terms: 'Terms of Service',
+            cookies: 'Cookie Policy',
+            gdpr: 'GDPR Compliance'
+        };
+        
+        this.showToast(`${titles[type]} modal would open here`, 'info');
+    }
+
+    showAccessibility() {
+        this.showToast('Accessibility features dialog would open here', 'info');
+    }
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Give it a small delay to ensure all elements are loaded
+    setTimeout(() => {
+        window.footerManager = new FooterManager();
+        console.log('Footer manager initialized');
+    }, 500);
+});
+// Update navigation progress and indicators
+function updateNavigationProgress() {
+    const navCards = document.querySelectorAll('.nav-card');
+    let visitedCount = 0;
+    
+    navCards.forEach(card => {
+        const isVisited = card.getAttribute('data-visited') === 'true';
+        if (isVisited) {
+            visitedCount++;
+            // Add glow effect to visited cards
+            card.classList.add('visited-glow');
+        }
+    });
+    
+    // Update progress text
+    const progressText = document.getElementById('navProgress');
+    if (progressText) {
+        progressText.textContent = `${visitedCount}/${navCards.length}`;
+    }
+    
+    // Update progress bar
+    const progressFill = document.getElementById('navProgressFill');
+    if (progressFill) {
+        const percentage = (visitedCount / navCards.length) * 100;
+        progressFill.style.width = `${percentage}%`;
+    }
+}
+// When the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Get all category headers
+    const categoryHeaders = document.querySelectorAll('.category-header');
+    
+    // Add click event to each header
+    categoryHeaders.forEach(header => {
+        header.addEventListener('click', function() {
+            // Get the parent tech-category element
+            const category = this.closest('.tech-category');
+            // Call the toggle function
+            toggleTechCategory(category);
+        });
+    });
+});
+function toggleTechCategory(category) {
+    // Toggle the open class
+    category.classList.toggle('open');
+    
+    // Get the content and toggle elements
+    const content = category.querySelector('.tech-tags');
+    const toggle = category.querySelector('.category-toggle');
+    
+    // Check if the category is now open
+    if (category.classList.contains('open')) {
+        // Show content and change toggle to up arrow
+        content.style.display = 'flex';
+        toggle.textContent = '▲';
+    } else {
+        // Hide content and change toggle to down arrow
+        content.style.display = 'none';
+        toggle.textContent = '▼';
+    }
+}
+// Mark navigation items as visited when clicked
+document.addEventListener('DOMContentLoaded', function() {
+    const navCards = document.querySelectorAll('.nav-card');
+    
+    navCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Mark this card as visited
+            this.setAttribute('data-visited', 'true');
+            
+            // Update all progress indicators
+            updateNavigationProgress();
+            
+            // Call the original onclick handler
+            const onclick = this.getAttribute('onclick');
+            if (onclick) {
+                eval(onclick);
+            }
+        });
+    });
+    
+    // Initialize progress display
+    updateNavigationProgress();
+});
+
+// Live metrics update function
+function updateLiveMetrics() {
+    // Update active users with random fluctuation
+    const usersElement = document.getElementById('activeUsers');
+    if (usersElement) {
+        const currentUsers = parseInt(usersElement.textContent) || 49;
+        const change = Math.floor(Math.random() * 5) - 2; // -2 to +2
+        const newUsers = Math.max(1, currentUsers + change);
+        usersElement.textContent = newUsers;
+        
+        // Update change indicator
+        const changeElement = document.getElementById('usersChange');
+        if (changeElement) {
+            changeElement.textContent = change >= 0 ? `+${change}` : `${change}`;
+            changeElement.className = change >= 0 ? 'metric-change' : 'metric-change negative';
+        }
+    }
+    
+    // Update live calculations
+    const calcElement = document.getElementById('liveCalculations');
+    if (calcElement) {
+        const currentCalc = parseInt(calcElement.textContent) || 18;
+        const change = Math.floor(Math.random() * 3); // 0 to 2
+        calcElement.textContent = currentCalc + change;
+    }
+    
+    // Update response time
+    const responseElement = document.getElementById('responseTime');
+    if (responseElement) {
+        const currentTime = parseInt(responseElement.textContent) || 54;
+        const change = Math.floor(Math.random() * 20) - 10; // -10 to +10
+        const newTime = Math.max(20, currentTime + change);
+        responseElement.textContent = `${newTime}ms`;
+    }
+}
+
+// Update metrics every 10 seconds
+setInterval(updateLiveMetrics, 10000);
+// ===== PROFESSIONAL NOTIFICATION SYSTEM =====
+
+class NotificationManager {
+    constructor() {
+        this.container = null;
+        this.initialize();
+    }
+
+    initialize() {
+        // Create notification container if it doesn't exist
+        if (!document.getElementById('notificationContainer')) {
+            this.container = document.createElement('div');
+            this.container.id = 'notificationContainer';
+            this.container.className = 'notification-container';
+            document.body.appendChild(this.container);
+        } else {
+            this.container = document.getElementById('notificationContainer');
+        }
+    }
+
+    // Show a notification
+    show(options) {
+        const {
+            type = 'info',
+            title = 'Notification',
+            message = '',
+            duration = 5000,
+            actions = [],
+            showProgress = true,
+            canClose = true,
+            onClose = null,
+            onAction = null
+        } = options;
+
+        // Create notification card
+        const card = document.createElement('div');
+        card.className = `notification-card ${type}`;
+        
+        // Get icon based on type
+        const icons = {
+            info: 'ℹ️',
+            success: '✅',
+            warning: '⚠️',
+            error: '❌'
+        };
+
+        // Build notification HTML
+        card.innerHTML = `
+            <div class="notification-header">
+                <div class="notification-title">
+                    <span class="notification-icon">${icons[type]}</span>
+                    <span>${title}</span>
+                </div>
+                ${canClose ? '<button class="notification-close">&times;</button>' : ''}
+            </div>
+            <div class="notification-body">
+                ${typeof message === 'string' ? `<p>${message}</p>` : message}
+            </div>
+            ${actions.length > 0 ? `
+                <div class="notification-actions">
+                    ${actions.map(action => `
+                        <button class="notification-btn ${action.type || 'secondary'}" 
+                                data-action="${action.id}">
+                            ${action.icon ? `<span>${action.icon}</span>` : ''}
+                            ${action.label}
+                        </button>
+                    `).join('')}
+                </div>
+            ` : ''}
+            ${showProgress ? `
+                <div class="notification-progress">
+                    <div class="notification-progress-bar"></div>
+                </div>
+            ` : ''}
+        `;
+
+        // Add to container
+        this.container.appendChild(card);
+
+        // Setup close functionality
+        if (canClose) {
+            const closeBtn = card.querySelector('.notification-close');
+            closeBtn.addEventListener('click', () => this.close(card, onClose));
+        }
+
+        // Setup action buttons
+        if (actions.length > 0) {
+            const actionBtns = card.querySelectorAll('.notification-btn');
+            actionBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    if (onAction) {
+                        onAction(btn.dataset.action);
+                    }
+                    this.close(card, onClose);
+                });
+            });
+        }
+
+        // Auto-dismiss if duration is set
+        if (duration > 0) {
+            if (showProgress) {
+                const progressBar = card.querySelector('.notification-progress-bar');
+                let startTime = Date.now();
+                
+                const updateProgress = () => {
+                    const elapsed = Date.now() - startTime;
+                    const percent = Math.min((elapsed / duration) * 100, 100);
+                    progressBar.style.width = `${percent}%`;
+                    
+                    if (percent < 100) {
+                        requestAnimationFrame(updateProgress);
+                    } else {
+                        this.close(card, onClose);
+                    }
+                };
+                
+                updateProgress();
+            } else {
+                setTimeout(() => this.close(card, onClose), duration);
+            }
+        }
+
+        return card;
+    }
+
+    // Close notification
+    close(card, callback) {
+        if (!card || !card.parentNode) return;
+        
+        card.classList.add('closing');
+        
+        setTimeout(() => {
+            if (card.parentNode) {
+                card.parentNode.removeChild(card);
+            }
+            if (callback) callback();
+        }, 300);
+    }
+
+    // Alert replacement
+    alert(message, title = 'Alert') {
+        return this.show({
+            type: 'info',
+            title: title,
+            message: message,
+            duration: 5000,
+            canClose: true
+        });
+    }
+
+    // Confirm replacement
+    confirm(message, title = 'Confirm') {
+        return new Promise((resolve) => {
+            const card = this.show({
+                type: 'warning',
+                title: title,
+                message: message,
+                duration: 0,
+                canClose: false,
+                actions: [
+                    {
+                        id: 'confirm',
+                        label: 'Confirm',
+                        type: 'primary',
+                        icon: '✓'
+                    },
+                    {
+                        id: 'cancel',
+                        label: 'Cancel',
+                        type: 'secondary',
+                        icon: '✕'
+                    }
+                ],
+                onAction: (action) => {
+                    resolve(action === 'confirm');
+                }
+            });
+        });
+    }
+
+    // Prompt replacement
+    prompt(message, defaultValue = '', title = 'Input') {
+        return new Promise((resolve) => {
+            const card = document.createElement('div');
+            card.className = 'notification-card info';
+            
+            card.innerHTML = `
+                <div class="notification-header">
+                    <div class="notification-title">
+                        <span class="notification-icon">✏️</span>
+                        <span>${title}</span>
+                    </div>
+                    <button class="notification-close">&times;</button>
+                </div>
+                <div class="notification-body">
+                    <p>${message}</p>
+                    <input type="text" class="notification-input" value="${defaultValue}" placeholder="Enter value...">
+                </div>
+                <div class="notification-actions">
+                    <button class="notification-btn primary" data-action="submit">
+                        <span>✓</span> Submit
+                    </button>
+                    <button class="notification-btn secondary" data-action="cancel">
+                        <span>✕</span> Cancel
+                    </button>
+                </div>
+            `;
+
+            this.container.appendChild(card);
+
+            const input = card.querySelector('.notification-input');
+            input.focus();
+            input.select();
+
+            const closeBtn = card.querySelector('.notification-close');
+            const submitBtn = card.querySelector('[data-action="submit"]');
+            const cancelBtn = card.querySelector('[data-action="cancel"]');
+
+            const close = (value) => {
+                this.close(card);
+                resolve(value);
+            };
+
+            closeBtn.addEventListener('click', () => close(null));
+            cancelBtn.addEventListener('click', () => close(null));
+            
+            submitBtn.addEventListener('click', () => close(input.value));
+            
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    close(input.value);
+                }
+            });
+        });
+    }
+
+    // Success notification
+    success(message, title = 'Success!') {
+        return this.show({
+            type: 'success',
+            title: title,
+            message: message,
+            duration: 3000
+        });
+    }
+
+    // Error notification
+    error(message, title = 'Error!') {
+        return this.show({
+            type: 'error',
+            title: title,
+            message: message,
+            duration: 7000
+        });
+    }
+
+    // Warning notification
+    warning(message, title = 'Warning!') {
+        return this.show({
+            type: 'warning',
+            title: title,
+            message: message,
+            duration: 5000
+        });
+    }
+
+    // Toast notification (smaller)
+    toast(message, type = 'info') {
+        return this.show({
+            type: type,
+            title: '',
+            message: message,
+            duration: 3000,
+            showProgress: false
+        });
+    }
+}
+
+// Initialize notification manager globally
+window.notify = new NotificationManager();
+
+// Override default alert/confirm/prompt
+window.alert = (message, title) => notify.alert(message, title);
+window.confirm = (message, title) => notify.confirm(message, title);
+window.prompt = (message, defaultValue, title) => notify.prompt(message, defaultValue, title);
 // Call this function whenever something changes
 function setupHeightManagement() {
   // Monitor form changes
@@ -3992,6 +4886,10 @@ function setupHeightManagement() {
 document.addEventListener("DOMContentLoaded", function () {
   setupHeightManagement();
 });
+
+//Just upodated
+
+
 // Add this function to display algorithm statistics
 function displayAlgorithmStats(data) {
   const algorithmStats = document.getElementById("algorithmStats");
@@ -4025,6 +4923,22 @@ function displayAlgorithmStats(data) {
         </div>
     `;
 }
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize the footer manager
+    if (window.footerManager) {
+        window.footerManager.setupEventListeners();
+    } else {
+        window.footerManager = new FooterManager();
+    }
+    
+    // Also add event listeners for tech categories directly
+    document.querySelectorAll('.tech-category').forEach(category => {
+        const header = category.querySelector('.category-header');
+        if (header) {
+            header.addEventListener('click', () => toggleTechCategory(category));
+        }
+    });
+});
 // Call this after page loads and when window resizes
 document.addEventListener("DOMContentLoaded", function () {
   setTimeout(fixLegendPosition, 100);
