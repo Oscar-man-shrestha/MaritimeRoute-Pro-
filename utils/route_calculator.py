@@ -8,9 +8,10 @@ import math
 import os
 from functools import lru_cache
 from datetime import datetime
+import hashlib
 
 class ShippingRouteOptimizer:
-    def __init__(self):
+    def __init__(self, seed=None):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.SEA_LANES_GEOJSON_PATH = os.path.join(current_dir, "../Shipping_Lanes_v1.geojson")
         
@@ -46,6 +47,14 @@ class ShippingRouteOptimizer:
         self.GA_GENERATIONS = 100
         self.PORT_CONNECTION_THRESHOLD_KM = 500
         
+        # Seed for deterministic behavior
+        self.seed = seed
+        if self.seed is not None:
+            random.seed(self.seed)
+            self.deterministic_random = random.Random(self.seed)
+        else:
+            self.deterministic_random = random.Random(42)  # Default seed
+        
         print("🔄 Initializing Shipping Route Optimizer...")
         
         # Initialize graph and data structures once
@@ -57,6 +66,11 @@ class ShippingRouteOptimizer:
         self.weather_service = None
         
         print("✅ Shipping Route Optimizer initialized successfully!")
+
+    def _get_deterministic_seed(self, start_port, destination_port, hub_ports, goal):
+        """Generate a deterministic seed based on input parameters"""
+        input_str = f"{start_port}_{destination_port}_{sorted(hub_ports)}_{goal}"
+        return int(hashlib.md5(input_str.encode()).hexdigest()[:8], 16) % (2**31)
 
     def _build_sea_graph(self):
         """Build the sea graph from GeoJSON data"""
@@ -200,8 +214,19 @@ class ShippingRouteOptimizer:
             fuel_tonnes = self._estimate_fuel_tonnes(d) * (1 + 0.025 * stops)
             return 1.0 / (fuel_tonnes + 1e-6)
 
-    def _crossover(self, parent1, parent2, hub_ports):
-        """Crossover that preserves all hub ports."""
+    def _deterministic_shuffle(self, lst, seed):
+        """Deterministic shuffle using Fisher-Yates algorithm"""
+        rng = random.Random(seed)
+        result = lst[:]
+        for i in range(len(result) - 1, 0, -1):
+            j = rng.randint(0, i)
+            result[i], result[j] = result[j], result[i]
+        return result
+
+    def _crossover(self, parent1, parent2, hub_ports, seed):
+        """Deterministic crossover that preserves all hub ports."""
+        rng = random.Random(seed)
+        
         hubs1 = parent1[1:-1]
         hubs2 = parent2[1:-1]
         all_hubs = list(dict.fromkeys(hubs1 + hubs2))
@@ -213,33 +238,52 @@ class ShippingRouteOptimizer:
         child = [parent1[0]] + all_hubs + [parent1[-1]]
         return child
 
-    def _mutate(self, route, hub_ports):
-        """Mutation that maintains all hub ports."""
+    def _mutate(self, route, hub_ports, seed):
+        """Deterministic mutation that maintains all hub ports."""
+        rng = random.Random(seed)
+        
         if len(route) <= 3:
             return route
         
         intermediate_indices = list(range(1, len(route) - 1))
         
         if len(intermediate_indices) >= 2:
-            i, j = random.sample(intermediate_indices, 2)
+            i, j = rng.sample(intermediate_indices, 2)
             route[i], route[j] = route[j], route[i]
         
         return route
 
     def _run_genetic_algorithm(self, start_port, destination_port, hub_ports, goal):
-        """Run genetic algorithm to optimize route - GUARANTEES ALL INTERMEDIATE PORTS ARE INCLUDED."""
+        """Deterministic genetic algorithm to optimize route."""
         if not hub_ports:
             direct_route = [start_port, destination_port]
             direct_distance = self._total_distance(direct_route)
             return direct_route, direct_distance
 
         print(f"🧬 GA optimizing route with ALL hubs: {hub_ports}")
-
+        
+        # Generate deterministic seed for this specific optimization
+        ga_seed = self._get_deterministic_seed(start_port, destination_port, hub_ports, goal)
+        rng = random.Random(ga_seed)
+        
+        # Generate initial population deterministically
         population = []
-        for _ in range(self.GA_POPULATION_SIZE):
-            shuffled_hubs = hub_ports.copy()
-            random.shuffle(shuffled_hubs)
-            route = [start_port] + shuffled_hubs + [destination_port]
+        base_route = [start_port] + hub_ports + [destination_port]
+        
+        # Create variations by rotating the hub sequence
+        for i in range(self.GA_POPULATION_SIZE):
+            if i == 0:
+                # First individual is the natural order
+                route = base_route.copy()
+            else:
+                # Create variations by rotating and shuffling deterministically
+                variation_seed = ga_seed + i * 1000
+                variation_rng = random.Random(variation_seed)
+                
+                shuffled_hubs = hub_ports.copy()
+                variation_rng.shuffle(shuffled_hubs)
+                
+                route = [start_port] + shuffled_hubs + [destination_port]
             population.append(route)
 
         best_route = None
@@ -247,6 +291,7 @@ class ShippingRouteOptimizer:
         best_distance = float('inf')
 
         for generation in range(self.GA_GENERATIONS):
+            # Evaluate fitness
             fitness_scores = []
             for route in population:
                 route_hubs = set(route[1:-1]) 
@@ -267,37 +312,53 @@ class ShippingRouteOptimizer:
 
             fitness_scores.sort(key=lambda x: x[1], reverse=True)
 
+            # Create new population (elitism + deterministic selection)
             new_population = []
+            
+            # Keep top individuals (elitism)
             elite_count = max(2, self.GA_POPULATION_SIZE // 10)
             for i in range(min(elite_count, len(fitness_scores))):
                 if fitness_scores[i][1] > 0:
                     new_population.append(fitness_scores[i][0])
 
+            # Fill rest with offspring
             while len(new_population) < self.GA_POPULATION_SIZE:
+                # Deterministic tournament selection
+                tourn_seed = ga_seed + generation * 10000 + len(new_population)
+                tourn_rng = random.Random(tourn_seed)
+                
                 valid_routes = [route for route, fitness, _ in fitness_scores if fitness > 0]
                 
                 if len(valid_routes) >= 2:
-                    parent1 = max(random.sample(valid_routes, min(3, len(valid_routes))), 
-                                 key=lambda r: self._fitness(r, goal))
-                    parent2 = max(random.sample(valid_routes, min(3, len(valid_routes))), 
-                                 key=lambda r: self._fitness(r, goal))
+                    # Tournament of size 3 (deterministic)
+                    candidates1 = [valid_routes[tourn_rng.randint(0, len(valid_routes)-1)] for _ in range(3)]
+                    candidates2 = [valid_routes[tourn_rng.randint(0, len(valid_routes)-1)] for _ in range(3)]
                     
-                    child = self._crossover(parent1, parent2, hub_ports)
+                    parent1 = max(candidates1, key=lambda r: self._fitness(r, goal))
+                    parent2 = max(candidates2, key=lambda r: self._fitness(r, goal))
                     
-                    if random.random() < 0.3:
-                        child = self._mutate(child, hub_ports)
+                    # Crossover with deterministic seed
+                    cross_seed = ga_seed + generation * 1000 + len(new_population)
+                    child = self._crossover(parent1, parent2, hub_ports, cross_seed)
+                    
+                    # Mutation with deterministic probability
+                    if tourn_rng.random() < 0.3:
+                        mutate_seed = ga_seed + generation * 10000 + len(new_population) + 1
+                        child = self._mutate(child, hub_ports, mutate_seed)
                     
                     new_population.append(child)
                 else:
-                    shuffled = hub_ports.copy()
-                    random.shuffle(shuffled)
-                    new_population.append([start_port] + shuffled + [destination_port])
+                    # Fallback: use rotated base route
+                    idx = len(new_population) % len(hub_ports)
+                    rotated_hubs = hub_ports[idx:] + hub_ports[:idx]
+                    new_population.append([start_port] + rotated_hubs + [destination_port])
 
             population = new_population[:self.GA_POPULATION_SIZE]
 
             if generation % 20 == 0:
                 print(f"  Generation {generation}: Best distance = {best_distance:.2f} km")
 
+        # Ensure all required hubs are included
         if best_route:
             final_hubs = set(best_route[1:-1])
             missing_hubs = set(hub_ports) - final_hubs
@@ -454,7 +515,7 @@ class ShippingRouteOptimizer:
         return points
 
     def calculate_optimal_routes(self, start_port, destination_port, hub_ports=None, goal="both", include_weather=True):
-       
+        """Main method to calculate routes with deterministic behavior"""
         if hub_ports is None:
             hub_ports = []
         
@@ -462,12 +523,15 @@ class ShippingRouteOptimizer:
         print(f"🎯 Intermediate ports: {hub_ports}")
         print(f"🎯 Optimization goal: {goal}")
         print(f"🌤️  Weather integration: {'ENABLED' if include_weather else 'DISABLED'}")
+        print(f"🎲 Using deterministic algorithm")
         
         self.current_hub_ports = hub_ports
         
+        # Generate deterministic GA routes
         fastest_route, fastest_distance = self._run_genetic_algorithm(start_port, destination_port, hub_ports, "fastest")
         fuel_route, fuel_distance = self._run_genetic_algorithm(start_port, destination_port, hub_ports, "fuel")
         
+        # Verify all intermediate ports are included
         for route_name, route, hubs in [("Fastest", fastest_route, hub_ports), ("Fuel-efficient", fuel_route, hub_ports)]:
             route_hubs = set(route[1:-1])
             required_hubs = set(hubs)
@@ -535,7 +599,8 @@ class ShippingRouteOptimizer:
             'direct_route': {
                 'coordinates': direct_coords
             },
-            'port_locations': self.PORT_LOCATIONS
+            'port_locations': self.PORT_LOCATIONS,
+            'deterministic_hash': self._get_deterministic_seed(start_port, destination_port, hub_ports, goal)
         }
         
         # Apply weather adjustments if enabled
@@ -546,29 +611,37 @@ class ShippingRouteOptimizer:
             self._initialize_weather_service()
             
             # Generate weather impact for both routes
+            # Note: Weather data will still vary, but that's expected
             if self.weather_service:
                 fastest_weather = self.weather_service.get_route_weather_impact(fast_coords)
                 fuel_weather = self.weather_service.get_route_weather_impact(fuel_coords)
             else:
-                # Use enhanced simulated weather data
+                # Use deterministic simulated weather based on route hash
+                weather_seed = results['deterministic_hash']
+                weather_rng = random.Random(weather_seed)
+                
                 fastest_weather = {
                     'weather_points': [],
-                    'average_impact': round(random.uniform(2.0, 6.0), 1),
-                    'overall_condition': random.choice(['Good', 'Moderate', 'Excellent']),
-                    'recommendation': 'Enhanced simulated weather data',
+                    'average_impact': round(weather_rng.uniform(2.0, 6.0), 1),
+                    'overall_condition': weather_rng.choice(['Good', 'Moderate', 'Excellent']),
+                    'recommendation': 'Deterministic simulated weather data',
                     'storm_glass_data': {
-                        'average_swell': round(random.uniform(1.0, 3.0), 1),
-                        'water_temp': round(18 + random.uniform(-5, 5), 1)
+                        'average_swell': round(weather_rng.uniform(1.0, 3.0), 1),
+                        'water_temp': round(18 + weather_rng.uniform(-5, 5), 1)
                     }
                 }
+                
+                # Use different seed for fuel route weather
+                weather_seed_fuel = weather_seed + 1
+                weather_rng_fuel = random.Random(weather_seed_fuel)
                 fuel_weather = {
                     'weather_points': [],
-                    'average_impact': round(random.uniform(2.0, 6.0), 1),
-                    'overall_condition': random.choice(['Good', 'Moderate', 'Excellent']),
-                    'recommendation': 'Enhanced simulated weather data',
+                    'average_impact': round(weather_rng_fuel.uniform(2.0, 6.0), 1),
+                    'overall_condition': weather_rng_fuel.choice(['Good', 'Moderate', 'Excellent']),
+                    'recommendation': 'Deterministic simulated weather data',
                     'storm_glass_data': {
-                        'average_swell': round(random.uniform(1.0, 3.0), 1),
-                        'water_temp': round(18 + random.uniform(-5, 5), 1)
+                        'average_swell': round(weather_rng_fuel.uniform(1.0, 3.0), 1),
+                        'water_temp': round(18 + weather_rng_fuel.uniform(-5, 5), 1)
                     }
                 }
             
@@ -599,4 +672,3 @@ class ShippingRouteOptimizer:
         
         print("✅ Route calculation complete!")
         return results
-
